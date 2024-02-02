@@ -2,3 +2,4 @@
 /src/testspace.rs
 /Cargo.lock
 /target
+/.DS_store
