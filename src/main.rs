@@ -4,6 +4,7 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 use crate::embeddings::input_embeddings::InputEmbeddings;
 
 mod embeddings;
+mod layer_norm;
 mod testspace;
 mod tokenizer;
 
@@ -17,7 +18,7 @@ fn main() -> Result<()> {
     println!("tok:  {:?}", encoding.get_tokens());
     // tok:  ["welcome", "to", "the", "library", ".", "test", "this", "out"]
     println!("ids:  {:?}", encoding.get_ids());
-    // ids:  [5807, 11, 5, 1509, 7, 681, 48, 92]    
+    // ids:  [5807, 11, 5, 1509, 7, 681, 48, 92]
 
     let vocab_size = tokenizer.get_vocab_size(true);
     let token_ids = encoding.get_ids();
