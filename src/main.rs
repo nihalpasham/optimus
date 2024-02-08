@@ -4,10 +4,7 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 use crate::embeddings::input_embeddings::InputEmbeddings;
 
 mod embeddings;
-<<<<<<< Updated upstream
 mod layer_norm;
-mod testspace;
-=======
 // mod testspace;
 mod tokenizer;
 
