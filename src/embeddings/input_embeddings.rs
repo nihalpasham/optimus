@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use candle_core::{Device, Result, Tensor};
 use candle_nn::{embedding, Embedding, VarBuilder};
 
-/// Holds vector embeddings for each token
+/// Holds vector embeddings for each token along with the vector dimensions and
+/// vocabulary length
 pub struct InputEmbeddings {
     #[allow(dead_code)]
     d_model: usize,
@@ -36,6 +37,8 @@ impl InputEmbeddings {
         })
     }
 
+    /// Creates an embedding (i.e. embedding vectors for each word) from a sequence of supplied 
+    /// token_ids or indices 
     pub fn forward(&self, indices: &[u32], device: &Device) -> Result<Tensor> {
         let tensor = Tensor::from_slice(indices, (indices.len(),), device)?;
         self.embedding.forward(&tensor)

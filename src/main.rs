@@ -8,7 +8,7 @@ mod layer_norm;
 // mod testspace;
 mod tokenizer;
 
-const D_MODEL: usize = 5;
+const D_MODEL: usize = 512;
 
 fn main() -> Result<()> {
     // load a pre-trained tokenizer
