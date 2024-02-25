@@ -5,6 +5,7 @@ use crate::embeddings::input_embeddings::InputEmbeddings;
 
 mod embeddings;
 mod layer_norm;
+mod feed_forward;
 // mod testspace;
 mod tokenizer;
 
