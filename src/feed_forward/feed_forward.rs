@@ -9,7 +9,7 @@ pub struct FeedForwardBlock {
 }
 
 impl FeedForwardBlock {
-    /// Creates an instance of a new `FeedForwardBlock`. We use the `VarMap` type to initialize two linear layers.
+    /// Creates an instance of a new `FeedForwardBlock`. We use a `VarMap` to initialize two linear layers.
     /// A VarMap allows us to initialize tensors using a config (configs here refers to a distribution,
     /// ex: uniform distribution). In this case, we're using the Kaiming distribution. See [`Init`]
     /// for more details
@@ -17,7 +17,7 @@ impl FeedForwardBlock {
     /// `linear()` is a helper function that returns the `Linear` type which contains weights and biases.  
     ///
     /// Note:
-    /// According to the paper, the 2 linear layers have the following dimensions
+    /// According to the paper, the 2 linear layers have the following weights and biases
     /// W1 - [512 x 2048], and B1 [512]
     /// W2 - [2048 x 512], and B2 [2048]
     pub fn new(d_model: usize, dropout: f32, d_ff: usize, device: &Device) -> Result<Self> {

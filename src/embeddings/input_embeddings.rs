@@ -15,7 +15,7 @@ pub struct InputEmbeddings {
 }
 
 impl InputEmbeddings {
-    /// Creates a new `InputEmbedding` instance. The underlying storage (i.e. embedding matrix)
+    /// Creates an instance of a new `InputEmbedding`. The underlying storage (i.e. embedding matrix)
     /// starts of as a `Tensor` initialized with random elements of type `f32`.
     ///
     /// Note: the tensor's dimensions are (vocab_size, d_model) and elements are ranged with
