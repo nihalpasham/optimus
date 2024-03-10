@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 use candle_core::Device;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
@@ -6,6 +8,7 @@ use crate::embeddings::input_embeddings::InputEmbeddings;
 mod embeddings;
 mod layer_norm;
 mod feed_forward;
+mod multi_head_attn;
 // mod testspace;
 mod tokenizer;
 

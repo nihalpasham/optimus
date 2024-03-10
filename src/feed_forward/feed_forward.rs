@@ -36,7 +36,7 @@ impl FeedForwardBlock {
             dropout,
             linear_2,
         })
-    }
+    } 
 
     /// Applying the FeedForwardBlock simply performs the following transformation
     /// (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_ff) --> (Batch, Seq_Len, d_model)
@@ -59,6 +59,8 @@ mod tests {
         let device = Device::new_metal(0).unwrap();
         let ff = FeedForwardBlock::new(512, 0.3, 2048, &device).unwrap();
         println!("linear_1: {}\n", ff.linear_1.weight());
-        println!("linear_2: {}", ff.linear_2.weight());
+        println!("linear_1: {}\n", ff.linear_1.bias().unwrap());
+        println!("linear_2: {}\n", ff.linear_2.weight());
+        println!("linear_2: {}\n", ff.linear_2.bias().unwrap());
     }
 }
