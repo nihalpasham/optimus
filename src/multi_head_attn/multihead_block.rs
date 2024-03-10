@@ -1,4 +1,4 @@
-use candle_core::{DType, Device, Result};
+use candle_core::{DType, Device, Module, Result, Tensor};
 use candle_nn::{init, Dropout, Init, Linear, VarBuilder, VarMap};
 
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
@@ -6,14 +6,16 @@ pub struct MultiHeadAttnBlock {
     d_model: usize,
     /// number of heads
     heads: usize,
-    // each head's dimensions
+    /// each head's dimensions
     head_dim: usize,
     dropout: Dropout, 
-    // weight matrices
+    /// Wq matrix
     w_q: Linear,
+    /// Wk matrix
     w_k: Linear,
+    /// Wv matrix
     w_v: Linear,
-    // output weight matrix
+    /// Wo - output weight matrix
     w_o: Linear,
 }
 
@@ -54,6 +56,19 @@ impl MultiHeadAttnBlock {
             w_v: wv,
             w_o: wo,
         })
+    }
+
+    /// Applying the `MultiheadAttnBlock` simply performs the following transformation
+    /// (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_ff) --> (Batch, Seq_Len, d_model)
+    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
+        let query = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        let key = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        let val = self.w_v.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+
+        // let q = query.
+
+        todo!()
+
     }
 }
 

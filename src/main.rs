@@ -1,13 +1,14 @@
 #![allow(warnings)]
 
 use candle_core::Device;
+use candle_nn::Dropout;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use crate::embeddings::input_embeddings::InputEmbeddings;
+use crate::embeddings::{input_embeddings::InputEmbeddings, pos_embeddings::{self, PosEmbeddings}};
 
 mod embeddings;
-mod layer_norm;
 mod feed_forward;
+mod layer_norm;
 mod multi_head_attn;
 // mod testspace;
 mod tokenizer;
@@ -30,8 +31,10 @@ fn main() -> Result<()> {
     let device = Device::new_metal(0)?;
     let input_embeds = InputEmbeddings::new(vocab_size, D_MODEL, &device)?;
     let embeddings = input_embeds.forward(&token_ids, &device)?;
-
     println!("vector embeddings: {}", embeddings);
+    let pe = PosEmbeddings::new(8, D_MODEL, Dropout::new(0.3), &device)?;
+    // let encode_input = pe.forward(embeddings)?;
+    println!("encoder_input: {}", pe.pos_embeddings);
 
     Ok(())
 }

@@ -7,7 +7,7 @@ use candle_nn::Dropout;
 /// each position in a sentence, we can have a position embedding that is to be added
 /// to the word embedding.
 pub struct PosEmbeddings {
-    pos_embeddings: Tensor,
+    pub pos_embeddings: Tensor,
     seq_len: usize,
     d_model: usize,
     dropout: Dropout,
