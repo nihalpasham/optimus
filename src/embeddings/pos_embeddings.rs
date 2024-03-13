@@ -1,4 +1,4 @@
-use candle_core::{Device, Result, Tensor};
+use candle_core::{Device, IndexOp, Result, Tensor};
 use candle_nn::Dropout;
 
 /// Holds per word position embeddings.
@@ -21,12 +21,15 @@ impl PosEmbeddings {
     /// - For each position, the odd rows are given - P E(pos,2i+1) = cos(pos/10000^(2i/d_model) )
     pub fn new(seq_len: usize, d_model: usize, dropout: Dropout, device: &Device) -> Result<Self> {
         let pos = Tensor::arange(0f32, seq_len as f32, device)?;
-        let denom = ((Tensor::arange_step(0f32, d_model as f32, 2f32, device)?
+        let denom = ((Tensor::arange(0f32, d_model as f32, device)?
             * (-10000.0f64.ln() / d_model as f64))?)
             .exp()?;
+        // expand tensor on dim 1 (i.e. column dimension), transforms [pos ] --> [pos, 1]
         let pos = pos.unsqueeze(1)?;
+        // expand tensor on dim 0 (i.e. row dimension), transforms [denom ] --> [1, denom]
         let denom = denom.unsqueeze(0)?;
         let tmp = (pos.matmul(&denom))?; // produces a matrix with dimensions seq_len * d_model
+        println!("tmp: {}\n", tmp);
         let even_embeds = tmp.sin()?; // apply a sine op to each element in the matrix
         let odd_embeds = tmp.cos()?; // apply a cosine op to each element in the matrix
 
@@ -61,7 +64,20 @@ impl PosEmbeddings {
     /// Add `position embeddings` for each word to each `word embedding` to incorporate position
     /// information into our input.
     pub fn forward(&self, ts: Tensor) -> Result<Tensor> {
-        let res = (&self.pos_embeddings + ts)?;
+        let res = (&self.pos_embeddings.i(0)? + ts)?;
         self.dropout.forward(&res, false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use candle_core::Device;
+
+    #[test]
+    fn verify_pos_embeddings_new() {
+        let device = Device::new_metal(0).unwrap();
+        let pe = PosEmbeddings::new(8, 512, Dropout::new(0.3), &device).unwrap();
+        println!("positional embeddings: {}\n", pe.pos_embeddings);
     }
 }

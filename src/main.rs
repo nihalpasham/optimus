@@ -33,8 +33,9 @@ fn main() -> Result<()> {
     let embeddings = input_embeds.forward(&token_ids, &device)?;
     println!("vector embeddings: {}", embeddings);
     let pe = PosEmbeddings::new(8, D_MODEL, Dropout::new(0.3), &device)?;
-    // let encode_input = pe.forward(embeddings)?;
-    println!("encoder_input: {}", pe.pos_embeddings);
+    println!("pos_embeddings main: {}", pe.pos_embeddings);
+    let encoder_input = pe.forward(embeddings)?;
+    println!("encoder_input: {}", encoder_input);
 
     Ok(())
 }
