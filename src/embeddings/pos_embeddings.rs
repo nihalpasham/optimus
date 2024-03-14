@@ -63,9 +63,12 @@ impl PosEmbeddings {
 
     /// Add `position embeddings` for each word to each `word embedding` to incorporate position
     /// information into our input.
-    pub fn forward(&self, ts: Tensor) -> Result<Tensor> {
+    ///
+    /// Note: This implementation only supports a single batch of input tokens
+    pub fn forward(mut self, ts: Tensor) -> Result<Tensor> {
         let res = (&self.pos_embeddings.i(0)? + ts)?;
-        self.dropout.forward(&res, false)
+        self.pos_embeddings = res.unsqueeze(0)?;
+        self.dropout.forward(&self.pos_embeddings, false)
     }
 }
 

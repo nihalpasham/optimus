@@ -6,8 +6,8 @@ pub struct MultiHeadAttnBlock {
     d_model: usize,
     /// number of heads
     heads: usize,
-    /// each head's dimensions
-    head_dim: usize,
+    /// each head's dimension size
+    h_dim_size: usize,
     dropout: Dropout, 
     /// Wq matrix
     w_q: Linear,
@@ -49,7 +49,7 @@ impl MultiHeadAttnBlock {
         Ok(Self {
             d_model,
             heads,
-            head_dim: d_model / heads,
+            h_dim_size: d_model / heads,
             dropout,
             w_q: wq,
             w_k: wk,
