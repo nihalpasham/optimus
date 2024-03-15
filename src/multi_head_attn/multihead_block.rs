@@ -1,14 +1,14 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
-use candle_nn::{init, Dropout, Init, Linear, VarBuilder, VarMap};
+use candle_nn::{init, Dropout, Init, Linear, VarBuilder, VarMap, ops::softmax};
 
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
 pub struct MultiHeadAttnBlock {
     d_model: usize,
-    /// number of heads
-    heads: usize,
+    /// number of no_of_heads
+    no_of_heads: usize,
     /// each head's dimension size
     h_dim_size: usize,
-    dropout: Dropout, 
+    dropout: Dropout,
     /// Wq matrix
     w_q: Linear,
     /// Wk matrix
@@ -25,7 +25,7 @@ impl MultiHeadAttnBlock {
     /// ex: uniform distribution). In this case, we're using the Kaiming distribution. See [`Init`]
     /// for more details
     ///
-    /// `linear_with_name()` is a helper function that returns the `Linear` type containing weights and biases. 
+    /// `linear_with_name()` is a helper function that returns the `Linear` type containing weights and biases.
     /// This is a slightly modified version of the built-in `linear` function. An extra `&str` argument is used
     /// to specify the weight matrices (wq, wk, wv, wo) to be inserted into the `VarMap`
     ///
@@ -35,7 +35,7 @@ impl MultiHeadAttnBlock {
     /// Wk - [512 x 512], and Bk [512]
     /// Wv - [512 x 512], and Bv [512]
     /// Wo - [512 x 512], and Bo [512]
-    pub fn new(d_model: usize, heads: usize, dropout: f32, device: &Device) -> Result<Self> {
+    pub fn new(d_model: usize, no_of_heads: usize, dropout: f32, device: &Device) -> Result<Self> {
         let vmap = VarMap::new();
         let vb = VarBuilder::from_varmap(&vmap, DType::F32, device);
         let wq = linear_with_name(d_model, d_model, "wq", vb.clone())?;
@@ -44,12 +44,12 @@ impl MultiHeadAttnBlock {
         let wo = linear_with_name(d_model, d_model, "wo", vb)?;
 
         let dropout = Dropout::new(dropout);
-        assert!(d_model % heads == 0);
+        assert!(d_model % no_of_heads == 0);
 
         Ok(Self {
             d_model,
-            heads,
-            h_dim_size: d_model / heads,
+            no_of_heads,
+            h_dim_size: d_model / no_of_heads,
             dropout,
             w_q: wq,
             w_k: wk,
@@ -58,18 +58,84 @@ impl MultiHeadAttnBlock {
         })
     }
 
-    /// Applying the `MultiheadAttnBlock` simply performs the following transformation
-    /// (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_ff) --> (Batch, Seq_Len, d_model)
-    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
-        let query = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
-        let key = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
-        let val = self.w_v.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+    pub fn attn_score(
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        mask: Option<usize>,
+        dropout: Dropout,
+        device: &Device,
+    ) -> Result<(Tensor, Tensor)> {
+        let h_dim_size = match query.dims().last() {
+            Some(v) => v,
+            None => {
+                let s = query.shape();
+                return Err(candle_core::Error::DimOutOfRange {
+                    shape: s.clone(),
+                    dim: -1,
+                    op: "Invalid last dim",
+                });
+            }
+        };
 
-        // let q = query.
+        let sqrt = (*h_dim_size as f32).sqrt();
+        let t = Tensor::new(sqrt, device)?;
+        let dims = key.dims().len();
+        let attn_scores = query
+            .matmul(&key.transpose(dims - 1, dims)?)?
+            .broadcast_div(&t)?;
+
+        match mask {
+            Some(m) => {}
+            None => attn_scores.so,
+        }
+        dropout.forward(&attn_scores, true);
 
         todo!()
-
     }
+    /// Applying the `MultiheadAttnBlock` simply performs the following transformation
+    pub fn forward(&self, xs: &Tensor, mask: Option<usize>, device: &Device) -> Result<Tensor> {
+        let q_prime = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        let k_prime = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        let v_prime = self.w_v.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, no_of_heads, h_dim_size) --> (Batch, no_of_heads, Seq_Len, h_dim_size)
+        let query = q_prime
+            .reshape((
+                q_prime.dims()[0],
+                q_prime.dims()[1],
+                self.no_of_heads,
+                self.h_dim_size,
+            ))?
+            .transpose(1, 2);
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, no_of_heads, h_dim_size) --> (Batch, no_of_heads, Seq_Len, h_dim_size)
+        let key = k_prime
+            .reshape((
+                k_prime.dims()[0],
+                k_prime.dims()[1],
+                self.no_of_heads,
+                self.h_dim_size,
+            ))?
+            .transpose(1, 2);
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, no_of_heads, h_dim_size) --> (Batch, no_of_heads, Seq_Len, h_dim_size)
+        let value = v_prime
+            .reshape((
+                v_prime.dims()[0],
+                v_prime.dims()[1],
+                self.no_of_heads,
+                self.h_dim_size,
+            ))?
+            .transpose(1, 2);
+
+        todo!()
+    }
+}
+
+pub fn masked_fill(on_false: &Tensor, mask: &Tensor, on_true: f32) -> Result<Tensor> {
+    let shape = mask.shape();
+    let on_true = Tensor::new(on_true, on_false.device())?.broadcast_as(shape.dims())?;
+    let m = mask.where_cond(&on_true, on_false)?;
+    Ok(m)
 }
 
 /// Create or initialize a new linear layer.
