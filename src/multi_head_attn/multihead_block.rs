@@ -58,12 +58,12 @@ impl MultiHeadAttnBlock {
         })
     }
 
-    pub fn attn_score(
+    pub fn calc_attn_scores(
         query: Tensor,
         key: Tensor,
         value: Tensor,
         mask: Option<Tensor>,
-        dropout: Dropout,
+        dropout: &Dropout,
         device: &Device,
     ) -> Result<(Tensor, Tensor)> {
         let head_size = match query.dims().last() {
@@ -80,11 +80,9 @@ impl MultiHeadAttnBlock {
 
         let sqrt = (*head_size as f32).sqrt();
         let t = Tensor::new(sqrt, device)?;
-        let num_dims = key.dims().len();
+
         // (Batch, num_heads, Seq_Len, head_size) --> (Batch, num_heads, Seq_Len, Seq_Len)
-        let mut attn_scores = query
-            .matmul(&key.transpose(num_dims - 1, num_dims)?)?
-            .broadcast_div(&t)?;
+        let mut attn_scores = query.matmul(&key.t()?)?.broadcast_div(&t)?;
 
         match mask {
             Some(m) => {
@@ -92,12 +90,13 @@ impl MultiHeadAttnBlock {
             }
             None => {}
         }
-        // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, Seq_Len)
         let last_dim = attn_scores.dims().len();
+        // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, Seq_Len)
         attn_scores = softmax(&attn_scores, last_dim)?;
-        dropout.forward(&attn_scores, true);
-
-        todo!()
+        attn_scores = dropout.forward(&attn_scores, true)?;
+        // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, head_size)
+        let final_attn_scores = attn_scores.matmul(&value)?;
+        Ok((final_attn_scores, attn_scores))
     }
 
     /// Applying the `MultiheadAttnBlock` simply performs the following transformation
@@ -110,17 +109,33 @@ impl MultiHeadAttnBlock {
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let query = q_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
-            .transpose(1, 2);
+            .transpose(1, 2)?;
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let key = k_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
-            .transpose(1, 2);
+            .transpose(1, 2)?;
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let value = v_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
-            .transpose(1, 2);
+            .transpose(1, 2)?;
+        let mask = get_mask(seq_len, device)?;
+        let (attn_scores, raw_attn_scores) = MultiHeadAttnBlock::calc_attn_scores(
+            query,
+            key,
+            value,
+            Some(mask),
+            &self.dropout,
+            device,
+        )?;
+        // (Batch, num_heads, Seq_Len, head_size) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, Seq_Len, d_model)
+        let res = attn_scores.transpose(1, 2)?.contiguous()?.reshape((
+            b_size,
+            seq_len,
+            self.num_heads * self.head_size,
+        ))?;
 
-        todo!()
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        Ok((self.w_o.forward(&res))?)
     }
 }
 
