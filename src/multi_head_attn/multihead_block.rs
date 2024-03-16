@@ -1,13 +1,13 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
-use candle_nn::{init, Dropout, Init, Linear, VarBuilder, VarMap, ops::softmax};
+use candle_nn::{init, ops::softmax, Dropout, Init, Linear, VarBuilder, VarMap};
 
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
 pub struct MultiHeadAttnBlock {
     d_model: usize,
-    /// number of no_of_heads
-    no_of_heads: usize,
+    /// number of num_heads
+    num_heads: usize,
     /// each head's dimension size
-    h_dim_size: usize,
+    head_size: usize,
     dropout: Dropout,
     /// Wq matrix
     w_q: Linear,
@@ -35,7 +35,7 @@ impl MultiHeadAttnBlock {
     /// Wk - [512 x 512], and Bk [512]
     /// Wv - [512 x 512], and Bv [512]
     /// Wo - [512 x 512], and Bo [512]
-    pub fn new(d_model: usize, no_of_heads: usize, dropout: f32, device: &Device) -> Result<Self> {
+    pub fn new(d_model: usize, num_heads: usize, dropout: f32, device: &Device) -> Result<Self> {
         let vmap = VarMap::new();
         let vb = VarBuilder::from_varmap(&vmap, DType::F32, device);
         let wq = linear_with_name(d_model, d_model, "wq", vb.clone())?;
@@ -44,12 +44,12 @@ impl MultiHeadAttnBlock {
         let wo = linear_with_name(d_model, d_model, "wo", vb)?;
 
         let dropout = Dropout::new(dropout);
-        assert!(d_model % no_of_heads == 0);
+        assert!(d_model % num_heads == 0);
 
         Ok(Self {
             d_model,
-            no_of_heads,
-            h_dim_size: d_model / no_of_heads,
+            num_heads,
+            head_size: d_model / num_heads,
             dropout,
             w_q: wq,
             w_k: wk,
@@ -62,73 +62,73 @@ impl MultiHeadAttnBlock {
         query: Tensor,
         key: Tensor,
         value: Tensor,
-        mask: Option<usize>,
+        mask: Option<Tensor>,
         dropout: Dropout,
         device: &Device,
     ) -> Result<(Tensor, Tensor)> {
-        let h_dim_size = match query.dims().last() {
+        let head_size = match query.dims().last() {
             Some(v) => v,
             None => {
                 let s = query.shape();
                 return Err(candle_core::Error::DimOutOfRange {
                     shape: s.clone(),
                     dim: -1,
-                    op: "Invalid last dim",
+                    op: "invalid last dim",
                 });
             }
         };
 
-        let sqrt = (*h_dim_size as f32).sqrt();
+        let sqrt = (*head_size as f32).sqrt();
         let t = Tensor::new(sqrt, device)?;
-        let dims = key.dims().len();
-        let attn_scores = query
-            .matmul(&key.transpose(dims - 1, dims)?)?
+        let num_dims = key.dims().len();
+        // (Batch, num_heads, Seq_Len, head_size) --> (Batch, num_heads, Seq_Len, Seq_Len)
+        let mut attn_scores = query
+            .matmul(&key.transpose(num_dims - 1, num_dims)?)?
             .broadcast_div(&t)?;
 
         match mask {
-            Some(m) => {}
-            None => attn_scores.so,
+            Some(m) => {
+                masked_fill(&attn_scores, &m, f32::NEG_INFINITY);
+            }
+            None => {}
         }
+        // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, Seq_Len)
+        let last_dim = attn_scores.dims().len();
+        attn_scores = softmax(&attn_scores, last_dim)?;
         dropout.forward(&attn_scores, true);
 
         todo!()
     }
+
     /// Applying the `MultiheadAttnBlock` simply performs the following transformation
-    pub fn forward(&self, xs: &Tensor, mask: Option<usize>, device: &Device) -> Result<Tensor> {
+    pub fn forward(&self, xs: &Tensor, mask: Option<Tensor>, device: &Device) -> Result<Tensor> {
         let q_prime = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let k_prime = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let v_prime = self.w_v.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
 
-        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, no_of_heads, h_dim_size) --> (Batch, no_of_heads, Seq_Len, h_dim_size)
+        let (b_size, seq_len, _) = xs.dims3()?;
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let query = q_prime
-            .reshape((
-                q_prime.dims()[0],
-                q_prime.dims()[1],
-                self.no_of_heads,
-                self.h_dim_size,
-            ))?
+            .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2);
-        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, no_of_heads, h_dim_size) --> (Batch, no_of_heads, Seq_Len, h_dim_size)
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let key = k_prime
-            .reshape((
-                k_prime.dims()[0],
-                k_prime.dims()[1],
-                self.no_of_heads,
-                self.h_dim_size,
-            ))?
+            .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2);
-        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, no_of_heads, h_dim_size) --> (Batch, no_of_heads, Seq_Len, h_dim_size)
+        // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let value = v_prime
-            .reshape((
-                v_prime.dims()[0],
-                v_prime.dims()[1],
-                self.no_of_heads,
-                self.h_dim_size,
-            ))?
+            .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2);
 
         todo!()
     }
+}
+
+fn get_mask(size: usize, device: &Device) -> Result<Tensor> {
+    let mask: Vec<_> = (0..size)
+        .flat_map(|i| (0..size).map(move |j| u8::from(j > i)))
+        .collect();
+    Tensor::from_slice(&mask, (size, size), device)
 }
 
 pub fn masked_fill(on_false: &Tensor, mask: &Tensor, on_true: f32) -> Result<Tensor> {
@@ -173,5 +173,18 @@ mod tests {
         println!("w_q_bias: {}\n", mha.w_q.bias().unwrap());
         println!("w_k: {}\n", mha.w_k.weight());
         println!("w_k_bias: {}\n", mha.w_k.bias().unwrap());
+    }
+
+    #[test]
+    fn test_get_mask() {
+        let device = Device::new_metal(0).unwrap();
+        let mask = get_mask(6, &device).unwrap();
+        println!("mask: {}", mask);
+    }
+    #[test]
+    fn test_masked_fill() {
+        let device = Device::new_metal(0).unwrap();
+        let mask = get_mask(6, &device).unwrap();
+        println!("mask: {}", mask);
     }
 }
