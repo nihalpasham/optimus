@@ -18,8 +18,8 @@ impl FeedForwardBlock {
     ///
     /// Note:
     /// According to the paper, the 2 linear layers have the following weights and biases
-    /// W1 - [512 x 2048], and B1 [512]
-    /// W2 - [2048 x 512], and B2 [2048]
+    /// - W1 - [512 x 2048], and B1 [512]
+    /// - W2 - [2048 x 512], and B2 [2048]
     pub fn new(d_model: usize, dropout: f32, d_ff: usize, device: &Device) -> Result<Self> {
         let w1b1 = VarMap::new();
         let vb_w1b1 = VarBuilder::from_varmap(&w1b1, DType::F32, device);
