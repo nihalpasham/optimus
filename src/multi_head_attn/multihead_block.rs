@@ -1,6 +1,8 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
 use candle_nn::{init, ops::softmax, Dropout, Init, Linear, VarBuilder, VarMap};
 
+use crate::utils::IsResidualLayerInput;
+
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
 pub struct MultiHeadAttnBlock {
     d_model: usize,
@@ -17,6 +19,12 @@ pub struct MultiHeadAttnBlock {
     w_v: Linear,
     /// Wo - output weight matrix
     w_o: Linear,
+}
+
+impl IsResidualLayerInput for MultiHeadAttnBlock {
+    fn forward(&self, x: &Tensor, mask: Option<Tensor>) -> Result<Tensor> {
+        self.forward(x, mask)
+    }
 }
 
 impl MultiHeadAttnBlock {
@@ -58,13 +66,14 @@ impl MultiHeadAttnBlock {
         })
     }
 
-    pub fn calc_attn_scores(
+    pub fn compute_attn_scores(
         query: Tensor,
         key: Tensor,
         value: Tensor,
         mask: Option<Tensor>,
+        bsize: usize,
+        num_heads: usize,
         dropout: &Dropout,
-        device: &Device,
     ) -> Result<(Tensor, Tensor)> {
         let head_size = match query.dims().last() {
             Some(v) => v,
@@ -79,28 +88,30 @@ impl MultiHeadAttnBlock {
         };
 
         let sqrt = (*head_size as f32).sqrt();
-        let t = Tensor::new(sqrt, device)?;
+        let t = Tensor::new(sqrt, &Device::Cpu)?;
 
         // (Batch, num_heads, Seq_Len, head_size) --> (Batch, num_heads, Seq_Len, Seq_Len)
-        let mut attn_scores = query
+        let attn_scores = query
             .contiguous()?
             .matmul(&key.t()?.contiguous()?)?
             .broadcast_div(&t)?;
 
-        println!("raw_attn_scores: {}", attn_scores);
+        println!("raw_attn_scores: \n{}\n", attn_scores);
         // apply mask
-        match mask {
-            Some(m) => {
-                masked_fill(&attn_scores, &m, f32::NEG_INFINITY);
-            }
-            None => {}
-        }
-        println!("masked_attn_scores: {}", attn_scores);
+        let mut attn_scores = match mask {
+            Some(m) => masked_fill(
+                &attn_scores,
+                &m.broadcast_left((bsize, num_heads))?,
+                f32::NEG_INFINITY,
+            )?,
+            None => attn_scores,
+        };
+        println!("masked_attn_scores: \n{}\n", attn_scores);
         let last_dim = attn_scores.dims().len();
         // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, Seq_Len)
         attn_scores = softmax(&attn_scores, last_dim - 1)?;
         //apply dropout
-        println!("softmaxed_attn_scores: {}", attn_scores);
+        println!("softmaxed_attn_scores: \n{}\n", attn_scores);
         attn_scores = dropout.forward(&attn_scores, true)?;
         // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, head_size)
         let final_attn_scores = attn_scores.contiguous()?.matmul(&value.contiguous()?)?;
@@ -112,7 +123,6 @@ impl MultiHeadAttnBlock {
         &self,
         xs: &Tensor,
         mut mask: Option<Tensor>,
-        device: &Device,
     ) -> Result<Tensor> {
         let q_prime = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let k_prime = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
@@ -123,7 +133,7 @@ impl MultiHeadAttnBlock {
         let query = q_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2)?;
-        println!("query: {}", query);
+        println!("query: \n{}\n", query);
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let key = k_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
@@ -132,11 +142,18 @@ impl MultiHeadAttnBlock {
         let value = v_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2)?;
-        mask = Some(get_mask(seq_len, device)?);
-        println!("mask: {:?}", mask);
-        let (attn_scores, raw_attn_scores) =
-            MultiHeadAttnBlock::calc_attn_scores(query, key, value, mask, &self.dropout, device)?;
-        println!("attn_scores: {}", attn_scores);
+        mask = Some(get_mask(seq_len, &Device::Cpu)?);
+        println!("mask: \n{}\n", mask.clone().unwrap());
+        let (attn_scores, raw_attn_scores) = MultiHeadAttnBlock::compute_attn_scores(
+            query,
+            key,
+            value,
+            mask,
+            b_size,
+            self.num_heads,
+            &self.dropout,
+        )?;
+        println!("final_attn_scores: {}", attn_scores);
         // (Batch, num_heads, Seq_Len, head_size) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, Seq_Len, d_model)
         let res = attn_scores.transpose(1, 2)?.contiguous()?.reshape((
             b_size,
@@ -158,8 +175,11 @@ fn get_mask(size: usize, device: &Device) -> Result<Tensor> {
 
 pub fn masked_fill(on_false: &Tensor, mask: &Tensor, on_true: f32) -> Result<Tensor> {
     let shape = mask.shape();
+    println!("Shape: {:?}", shape);
     let on_true = Tensor::new(on_true, on_false.device())?.broadcast_as(shape.dims())?;
+    println!("on_true: {}", on_true);
     let m = mask.where_cond(&on_true, on_false)?;
+    println!("m: {:?}", m);
     Ok(m)
 }
 
@@ -229,14 +249,6 @@ mod tests {
         .unwrap();
         println!("a.shape(): {}", a);
         let a = candle_nn::ops::softmax(&a, 1).unwrap();
-        println!("a: {}", a);
-        // assert_eq!(
-        //     to_vec2_round(&a, 4).unwrap(),
-        //     &[
-        //         [0.1345, 0.3655, 0.1345, 0.3655],
-        //         [0.0049, 0.2671, 0.7262, 0.0018]
-        //     ]
-        // );
     }
     #[test]
     fn test_multiheadattnblock_forward() {
@@ -257,15 +269,15 @@ mod tests {
 
         let input_embeds = InputEmbeddings::new(vocab_size, 512, &device).unwrap();
         let embeddings = input_embeds.forward(&token_ids, &device).unwrap();
-        println!("vector embeddings: {}", embeddings);
+        println!("vector embeddings: \n{}\n", embeddings);
         let pe = PosEmbeddings::new(8, 512, Dropout::new(0.3), &device).unwrap();
-        println!("pos_embeddings main: {}", pe.pos_embeddings);
+        println!("pos_embeddings main: \n{}\n", pe.pos_embeddings);
         let encoder_input = pe.forward(embeddings).unwrap();
-        println!("encoder_input: {}\n", encoder_input);
+        println!("encoder_input: \n{}\n", encoder_input);
 
         let mha = MultiHeadAttnBlock::new(512, 4, 0.3, &device).unwrap();
 
-        let attn = mha.forward(&encoder_input, None, &device).unwrap();
+        let attn = mha.forward(&encoder_input, None).unwrap();
         println!("\n attn_output: {}", attn);
     }
 }

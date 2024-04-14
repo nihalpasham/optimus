@@ -1,11 +1,19 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
 use candle_nn::{linear, Dropout, Linear, VarBuilder, VarMap};
 
+use crate::utils::IsResidualLayerInput;
+
 /// Represents the FeedForwardBlock in the transformer architecture.
 pub struct FeedForwardBlock {
     linear_1: Linear,
     dropout: Dropout,
     linear_2: Linear,
+}
+
+impl IsResidualLayerInput for FeedForwardBlock {
+    fn forward(&self, x: &Tensor, _: Option<Tensor>) -> Result<Tensor> {
+        self.forward(x)
+    }
 }
 
 impl FeedForwardBlock {
@@ -36,7 +44,7 @@ impl FeedForwardBlock {
             dropout,
             linear_2,
         })
-    } 
+    }
 
     /// Applying the FeedForwardBlock simply performs the following transformation
     /// (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_ff) --> (Batch, Seq_Len, d_model)
