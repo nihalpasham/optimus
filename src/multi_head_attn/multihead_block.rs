@@ -26,6 +26,11 @@ impl IsResidualLayerInput for MultiHeadAttnBlock {
         self.forward(x, mask)
     }
 }
+impl IsResidualLayerInput for &MultiHeadAttnBlock {
+    fn forward(&self, x: &Tensor, mask: Option<Tensor>) -> Result<Tensor> {
+        self.forward(x, mask)
+    }
+}
 
 impl MultiHeadAttnBlock {
     /// Creates an instance of a new `MultiHeadAttnBlock`. We use a `VarMap` to initialize 4 linear layers.
@@ -119,11 +124,7 @@ impl MultiHeadAttnBlock {
     }
 
     /// Applying the `MultiheadAttnBlock` simply performs the following transformation
-    pub fn forward(
-        &self,
-        xs: &Tensor,
-        mut mask: Option<Tensor>,
-    ) -> Result<Tensor> {
+    pub fn forward(&self, xs: &Tensor, mut mask: Option<Tensor>) -> Result<Tensor> {
         let q_prime = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let k_prime = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let v_prime = self.w_v.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)

@@ -11,14 +11,14 @@ use candle_nn::LayerNorm;
 /// It then subtracts the average from each value and divides it by the standard deviation. This effectively 
 /// "standardizes" the outputs, bringing them closer to a normal distribution with a mean of 0 and standard 
 /// deviation of 1.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayerNormalization(LayerNorm);
 
 impl LayerNormalization {
     /// `LayerNormalizartion` wraps the built-in `LayerNorm` type.
-    pub fn new(device: &Device) -> Result<Self> {
-        let w = Tensor::new(1f32, device)?;
-        let b = Tensor::new(0f32, device)?;
+    pub fn new() -> Result<Self> {
+        let w = Tensor::new(1f32, &Device::Cpu)?;
+        let b = Tensor::new(0f32, &Device::Cpu)?;
         let layer_norm = LayerNorm::new(w, b, 1e-5);
         Ok(LayerNormalization(layer_norm))
     }

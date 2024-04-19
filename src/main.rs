@@ -12,6 +12,7 @@ mod layer_norm;
 mod multi_head_attn;
 mod residual_layer;
 mod utils;
+mod encoder;
 // mod testspace;
 mod tokenizer;
 

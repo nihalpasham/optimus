@@ -15,6 +15,11 @@ impl IsResidualLayerInput for FeedForwardBlock {
         self.forward(x)
     }
 }
+impl IsResidualLayerInput for &FeedForwardBlock {
+    fn forward(&self, x: &Tensor, _: Option<Tensor>) -> Result<Tensor> {
+        (*self).forward(x)
+    }
+}
 
 impl FeedForwardBlock {
     /// Creates an instance of a new `FeedForwardBlock`. We use a `VarMap` to initialize two linear layers.
