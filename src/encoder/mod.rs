@@ -1,2 +1,2 @@
-pub mod encoder_block;
 pub mod encoder;
+pub mod encoder_block;

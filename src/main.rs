@@ -4,15 +4,19 @@ use candle_core::Device;
 use candle_nn::Dropout;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use crate::embeddings::{input_embeddings::InputEmbeddings, pos_embeddings::{self, PosEmbeddings}};
+use crate::embeddings::{
+    input_embeddings::InputEmbeddings,
+    pos_embeddings::{self, PosEmbeddings},
+};
 
 mod embeddings;
+mod encoder;
+mod decoder;
 mod feed_forward;
 mod layer_norm;
 mod multi_head_attn;
 mod residual_layer;
 mod utils;
-mod encoder;
 // mod testspace;
 mod tokenizer;
 

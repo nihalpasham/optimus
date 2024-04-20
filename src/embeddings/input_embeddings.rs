@@ -41,7 +41,7 @@ impl InputEmbeddings {
     /// token_ids or indices
     pub fn forward(&self, indices: &[u32], device: &Device) -> Result<Tensor> {
         let tensor = Tensor::from_slice(indices, (indices.len(),), device)?;
-        // the paper performs a scalar multiplication of the embedding matrix with square root of d_model 
+        // the paper performs a scalar multiplication of the embedding matrix with square root of d_model
         let dmodel_sqrt = (self.d_model as f32).sqrt();
         let t = Tensor::new(dmodel_sqrt, device)?;
         self.embedding.forward(&tensor)?.broadcast_mul(&t)

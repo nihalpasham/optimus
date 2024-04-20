@@ -24,7 +24,7 @@ pub struct MultiHeadAttnBlock {
 
 impl IsResidualLayerInput for MultiHeadAttnBlock {
     fn forward(&self, x: &Tensor, mask: Option<Tensor>) -> Result<Tensor> {
-        self.forward(x, mask)
+        self.forward(x, x, x, mask)
     }
 }
 impl IsResidualLayerInput for &MultiHeadAttnBlock {
@@ -125,12 +125,18 @@ impl MultiHeadAttnBlock {
     }
 
     /// Applying the `MultiheadAttnBlock` simply performs the following transformation
-    pub fn forward(&self, xs: &Tensor, mut mask: Option<Tensor>) -> Result<Tensor> {
-        let q_prime = self.w_q.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
-        let k_prime = self.w_k.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
-        let v_prime = self.w_v.forward(xs)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+    pub fn forward(
+        &self,
+        q: &Tensor,
+        k: &Tensor,
+        v: &Tensor,
+        mut mask: Option<Tensor>,
+    ) -> Result<Tensor> {
+        let q_prime = self.w_q.forward(q)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        let k_prime = self.w_k.forward(k)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
+        let v_prime = self.w_v.forward(v)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         println!("q_prime: {}", q_prime);
-        let (b_size, seq_len, _) = xs.dims3()?;
+        let (b_size, seq_len, _) = q.dims3()?;
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let query = q_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
@@ -144,7 +150,12 @@ impl MultiHeadAttnBlock {
         let value = v_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2)?;
-        mask = Some(get_mask(seq_len, &Device::Cpu)?);
+        
+        // Apply a mask, if provided
+        mask = match mask {
+            Some(m) => Some(get_mask(seq_len, &Device::Cpu)?),
+            None => mask,
+        };
         println!("mask: \n{}\n", mask.clone().unwrap());
         let (attn_scores, raw_attn_scores) = MultiHeadAttnBlock::compute_attn_scores(
             query,
@@ -279,7 +290,9 @@ mod tests {
 
         let mha = MultiHeadAttnBlock::new(512, 4, 0.3, &device).unwrap();
 
-        let attn = mha.forward(&encoder_input, None).unwrap();
+        let attn = mha
+            .forward(&encoder_input, &encoder_input, &encoder_input, None)
+            .unwrap();
         println!("\n attn_output: {}", attn);
     }
 }
