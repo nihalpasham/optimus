@@ -9,9 +9,9 @@ use crate::embeddings::{
     pos_embeddings::{self, PosEmbeddings},
 };
 
+mod decoder;
 mod embeddings;
 mod encoder;
-mod decoder;
 mod feed_forward;
 mod layer_norm;
 mod multi_head_attn;

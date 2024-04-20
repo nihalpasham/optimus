@@ -29,7 +29,7 @@ impl IsResidualLayerInput for MultiHeadAttnBlock {
 }
 impl IsResidualLayerInput for &MultiHeadAttnBlock {
     fn forward(&self, x: &Tensor, mask: Option<Tensor>) -> Result<Tensor> {
-        self.forward(x, mask)
+        (*self).forward(x, x, x, mask)
     }
 }
 
@@ -150,7 +150,7 @@ impl MultiHeadAttnBlock {
         let value = v_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2)?;
-        
+
         // Apply a mask, if provided
         mask = match mask {
             Some(m) => Some(get_mask(seq_len, &Device::Cpu)?),

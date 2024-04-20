@@ -1,17 +1,17 @@
-// use super::encoder_block::EncoderBlock;
+// use super::Decoder_block::DecoderBlock;
 // use crate::layer_norm::norm::LayerNormalization;
 // use candle_core::{Result, Tensor};
 
 // #[derive(Debug)]
-// pub struct Encoder {
-//     layers: Vec<EncoderBlock>,
+// pub struct Decoder {
+//     layers: Vec<DecoderBlock>,
 //     norm: LayerNormalization,
 // }
 
-// impl Encoder {
-//     pub fn new(layers: Vec<EncoderBlock>) -> Result<Self> {
+// impl Decoder {
+//     pub fn new(layers: Vec<DecoderBlock>) -> Result<Self> {
 //         let norm = LayerNormalization::new()?;
-//         Ok(Encoder { layers, norm })
+//         Ok(Decoder { layers, norm })
 //     }
 //     pub fn forward(&self, mut xs: Tensor, src_mask: Option<Tensor>) -> Result<Tensor> {
 //         for blk in self.layers.iter() {
@@ -38,7 +38,7 @@
 //     use super::*;
 
 //     #[test]
-//     fn test_encoder() {
+//     fn test_Decoder() {
 //         let d_model = 512usize;
 //         let d_ff = 2048usize;
 //         let num_heads = 4usize;
@@ -63,15 +63,15 @@
 //         println!("vector embeddings: \n{}\n", embeddings);
 //         let pe = PosEmbeddings::new(seq_len, d_model, Dropout::new(dropout), &device).unwrap();
 //         println!("pos_embeddings main: \n{}\n", pe.pos_embeddings);
-//         let encoder_input = pe.forward(embeddings).unwrap();
-//         println!("encoder_input: \n{}\n", encoder_input);
+//         let Decoder_input = pe.forward(embeddings).unwrap();
+//         println!("Decoder_input: \n{}\n", Decoder_input);
 
 //         let mha = MultiHeadAttnBlock::new(d_model, num_heads, dropout, &device).unwrap();
 //         let ff = FeedForwardBlock::new(d_model, dropout, d_ff, &device).unwrap();
-//         let blk = EncoderBlock::new(mha, ff, dropout).unwrap();
+//         let blk = DecoderBlock::new(mha, ff, dropout).unwrap();
 
-//         let encoder = Encoder::new(Vec::with_capacity(10)).unwrap();
-//         let t = encoder.forward(encoder_input, None).unwrap();
-//         println!("encoder_output: \n{}\n", t);
+//         let Decoder = Decoder::new(Vec::with_capacity(10)).unwrap();
+//         let t = Decoder.forward(Decoder_input, None).unwrap();
+//         println!("Decoder_output: \n{}\n", t);
 //     }
 // }

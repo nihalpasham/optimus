@@ -4,7 +4,7 @@ use candle_nn::Dropout;
 use crate::{
     feed_forward::feed_forward::FeedForwardBlock,
     multi_head_attn::multihead_block::MultiHeadAttnBlock,
-    residual_layer::residual_conn::ResidualConnection,
+    residual_layer::residual_conn::{ResidualConnection, SubLayers},
 };
 
 #[derive(Debug)]
@@ -37,9 +37,14 @@ impl DecoderBlock {
         src_mask: Option<Tensor>,
         tgt_mask: Option<Tensor>,
     ) -> Result<Tensor> {
-        let x = self.rconns[0].forward(xs,  src_mask, &self.self_attn)?;
-        let x = self.rconns[1].forward(xs, tgt_mask, &self.self_attn)?;
-        let x = self.rconns[1].forward(&x, None, &self.ff)?;
+        let x = self.rconns[0].forward(xs, None, src_mask, SubLayers::Mha(&self.self_attn))?;
+        let x = self.rconns[1].forward(
+            &x,
+            Some(encoder_output),
+            tgt_mask,
+            SubLayers::Mha(&self.cross_attn),
+        )?;
+        let x = self.rconns[2].forward(&x, None, None, SubLayers::Ff(&self.ff))?;
         Ok(x)
     }
 }

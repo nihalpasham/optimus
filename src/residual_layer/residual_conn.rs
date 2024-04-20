@@ -1,8 +1,15 @@
 use candle_core::{Device, Result, Tensor};
 use candle_nn::Dropout;
 
-use crate::{layer_norm::norm::LayerNormalization, utils::IsResidualLayerInput};
+use crate::{
+    feed_forward::feed_forward::FeedForwardBlock, layer_norm::norm::LayerNormalization,
+    multi_head_attn::multihead_block::MultiHeadAttnBlock, utils::IsResidualLayerInput,
+};
 
+pub enum SubLayers<'a> {
+    Mha(&'a MultiHeadAttnBlock),
+    Ff(&'a FeedForwardBlock),
+}
 #[derive(Debug)]
 pub struct ResidualConnection {
     dropout: Dropout,
@@ -20,11 +27,18 @@ impl ResidualConnection {
     pub fn forward(
         &self,
         xs: &Tensor,
+        xa: Option<&Tensor>,
         mask: Option<Tensor>,
-        sublayer: impl IsResidualLayerInput,
+        sublayer: SubLayers,
     ) -> Result<Tensor> {
-        let tmp = self.norm.forward(xs)?;
-        let sublayer_tensor = sublayer.forward(&tmp, mask)?;
+        let t = self.norm.forward(xs)?;
+        let sublayer_tensor = match sublayer {
+            SubLayers::Mha(m) => match xa {
+                Some(xa) => m.forward(&t, xa, xa, mask)?,
+                None => m.forward(&t, &t, &t, mask)?,
+            },
+            SubLayers::Ff(f) => todo!(),
+        };
         // apply dropout and combine the original tensor
         let res = xs + self.dropout.forward(&sublayer_tensor, false)?;
         res
