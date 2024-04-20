@@ -4,6 +4,7 @@ use candle_nn::{linear, Dropout, Linear, VarBuilder, VarMap};
 use crate::utils::IsResidualLayerInput;
 
 /// Represents the FeedForwardBlock in the transformer architecture.
+#[derive(Debug)]
 pub struct FeedForwardBlock {
     linear_1: Linear,
     dropout: Dropout,

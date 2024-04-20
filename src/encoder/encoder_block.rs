@@ -7,6 +7,7 @@ use crate::{
     residual_layer::residual_conn::ResidualConnection,
 };
 
+#[derive(Debug)]
 pub struct EncoderBlock {
     mha: MultiHeadAttnBlock,
     ff: FeedForwardBlock,

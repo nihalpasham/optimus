@@ -4,6 +4,7 @@ use candle_nn::{init, ops::softmax, Dropout, Init, Linear, VarBuilder, VarMap};
 use crate::utils::IsResidualLayerInput;
 
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
+#[derive(Debug)]
 pub struct MultiHeadAttnBlock {
     d_model: usize,
     /// number of num_heads
