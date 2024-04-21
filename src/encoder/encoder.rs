@@ -66,11 +66,21 @@ mod tests {
         let encoder_input = pe.forward(embeddings).unwrap();
         println!("encoder_input: \n{}\n", encoder_input);
 
-        let mha = MultiHeadAttnBlock::new(d_model, num_heads, dropout, &device).unwrap();
-        let ff = FeedForwardBlock::new(d_model, dropout, d_ff, &device).unwrap();
-        let blk = EncoderBlock::new(mha, ff, dropout).unwrap();
+        let mut layers = Vec::with_capacity(10);
+        for layer in 0..layers.capacity() {
+            layers.push(
+                EncoderBlock::new(
+                    MultiHeadAttnBlock::new(d_model, num_heads, dropout, &device).unwrap(),
+                    FeedForwardBlock::new(d_model, dropout, d_ff, &device).unwrap(),
+                    dropout,
+                )
+                .unwrap(),
+            )
+        }
+        // println!("layers: \n{:?}\n", layers);
 
-        let encoder = Encoder::new(Vec::with_capacity(10)).unwrap();
+        let encoder = Encoder::new(layers).unwrap();
+        // println!("encoder: \n{:?}\n", encoder);
         let t = encoder.forward(encoder_input, None).unwrap();
         println!("encoder_output: \n{}\n", t);
     }

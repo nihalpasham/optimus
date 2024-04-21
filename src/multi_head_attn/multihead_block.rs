@@ -156,7 +156,7 @@ impl MultiHeadAttnBlock {
             Some(m) => Some(get_mask(seq_len, &Device::Cpu)?),
             None => mask,
         };
-        println!("mask: \n{}\n", mask.clone().unwrap());
+        println!("mask: \n{:?}\n", mask.clone());
         let (attn_scores, raw_attn_scores) = MultiHeadAttnBlock::compute_attn_scores(
             query,
             key,
@@ -179,7 +179,7 @@ impl MultiHeadAttnBlock {
     }
 }
 
-fn get_mask(size: usize, device: &Device) -> Result<Tensor> {
+pub fn get_mask(size: usize, device: &Device) -> Result<Tensor> {
     let mask: Vec<_> = (0..size)
         .flat_map(|i| (0..size).map(move |j| u8::from(j > i)))
         .collect();

@@ -1,3 +1,5 @@
+use std::rc;
+
 use candle_core::{Result, Tensor};
 use candle_nn::Dropout;
 
@@ -22,11 +24,15 @@ impl DecoderBlock {
         ff: FeedForwardBlock,
         dropout: f32,
     ) -> Result<Self> {
+        let mut rconns = Vec::with_capacity(3);
+        for conn in 0..3 {
+            rconns.push(ResidualConnection::new(dropout)?);
+        }
         Ok(DecoderBlock {
             self_attn,
             cross_attn,
             ff,
-            rconns: Vec::with_capacity(3),
+            rconns,
         })
     }
 

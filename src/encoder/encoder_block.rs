@@ -16,13 +16,11 @@ pub struct EncoderBlock {
 
 impl EncoderBlock {
     pub fn new(mha: MultiHeadAttnBlock, ff: FeedForwardBlock, dropout: f32) -> Result<Self> {
-        // let rconn1 = ResidualConnection::new(dropout)?;
-        // let rconn2 = ResidualConnection::new(dropout)?;
-        Ok(EncoderBlock {
-            mha,
-            ff,
-            rconns: Vec::with_capacity(2),
-        })
+        let mut rconns = Vec::with_capacity(2);
+        for conn in 0..2 {
+            rconns.push(ResidualConnection::new(dropout)?);
+        }
+        Ok(EncoderBlock { mha, ff, rconns })
     }
 
     pub fn forward(&self, xs: &Tensor, src_mask: Option<Tensor>) -> Result<Tensor> {

@@ -37,7 +37,7 @@ impl ResidualConnection {
                 Some(xa) => m.forward(&t, xa, xa, mask)?,
                 None => m.forward(&t, &t, &t, mask)?,
             },
-            SubLayers::Ff(f) => todo!(),
+            SubLayers::Ff(f) => f.forward(&t)?,
         };
         // apply dropout and combine the original tensor
         let res = xs + self.dropout.forward(&sublayer_tensor, false)?;
