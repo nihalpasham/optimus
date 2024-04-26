@@ -34,7 +34,10 @@ impl ResidualConnection {
         let t = self.norm.forward(xs)?;
         let sublayer_tensor = match sublayer {
             SubLayers::Mha(m) => match xa {
-                Some(xa) => m.forward(&t, xa, xa, mask)?,
+                Some(xa) => {
+                    let xa = self.norm.forward(xa)?;
+                    m.forward(&t, &xa, &xa, mask)?
+                }
                 None => m.forward(&t, &t, &t, mask)?,
             },
             SubLayers::Ff(f) => f.forward(&t)?,
