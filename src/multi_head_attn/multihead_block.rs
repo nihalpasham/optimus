@@ -1,5 +1,5 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
-use candle_nn::{init, ops::softmax, Dropout, Init, Linear, VarBuilder, VarMap};
+use candle_nn::{init, ops::{log_softmax, softmax}, Dropout, Init, Linear, VarBuilder, VarMap};
 
 use crate::utils::IsResidualLayerInput;
 
@@ -283,7 +283,7 @@ mod tests {
         let input_embeds = InputEmbeddings::new(vocab_size, 512, &device).unwrap();
         let embeddings = input_embeds.forward(&token_ids, &device).unwrap();
         println!("vector embeddings: \n{}\n", embeddings);
-        let pe = PosEmbeddings::new(8, 512, Dropout::new(0.3), &device).unwrap();
+        let mut pe = PosEmbeddings::new(8, 512, Dropout::new(0.3), &device).unwrap();
         println!("pos_embeddings main: \n{}\n", pe.pos_embeddings);
         let encoder_input = pe.forward(embeddings).unwrap();
         println!("encoder_input: \n{}\n", encoder_input);

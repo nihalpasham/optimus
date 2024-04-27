@@ -17,6 +17,8 @@ mod layer_norm;
 mod multi_head_attn;
 mod residual_layer;
 mod utils;
+mod projection_layer;
+mod transfomer;
 // mod testspace;
 mod tokenizer;
 
@@ -39,7 +41,7 @@ fn main() -> Result<()> {
     let input_embeds = InputEmbeddings::new(vocab_size, D_MODEL, &device)?;
     let embeddings = input_embeds.forward(&token_ids, &device)?;
     println!("vector embeddings: {}", embeddings);
-    let pe = PosEmbeddings::new(8, D_MODEL, Dropout::new(0.3), &device)?;
+    let mut pe = PosEmbeddings::new(8, D_MODEL, Dropout::new(0.3), &device)?;
     println!("pos_embeddings main: {}", pe.pos_embeddings);
     let encoder_input = pe.forward(embeddings)?;
     println!("encoder_input: {}", encoder_input);

@@ -6,6 +6,7 @@ use candle_nn::Dropout;
 /// According the paper, this need not be a learnable parameter. Its a fixed quantity i.e for
 /// each position in a sentence, we can have a position embedding that is to be added
 /// to the word embedding.
+#[derive(Debug)]
 pub struct PosEmbeddings {
     pub pos_embeddings: Tensor,
     seq_len: usize,
@@ -65,7 +66,7 @@ impl PosEmbeddings {
     /// information into our input.
     ///
     /// Note: This implementation only supports a single batch of input tokens
-    pub fn forward(mut self, ts: Tensor) -> Result<Tensor> {
+    pub fn forward(&mut self, ts: Tensor) -> Result<Tensor> {
         let res = (&self.pos_embeddings.i(0)? + ts)?;
         self.pos_embeddings = res.unsqueeze(0)?;
         self.dropout.forward(&self.pos_embeddings, false)

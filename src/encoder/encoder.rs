@@ -61,7 +61,7 @@ mod tests {
         let input_embeds = InputEmbeddings::new(vocab_size, d_model, &device).unwrap();
         let embeddings = input_embeds.forward(&token_ids, &device).unwrap();
         println!("vector embeddings: \n{}\n", embeddings);
-        let pe = PosEmbeddings::new(seq_len, d_model, Dropout::new(dropout), &device).unwrap();
+        let mut pe = PosEmbeddings::new(seq_len, d_model, Dropout::new(dropout), &device).unwrap();
         println!("pos_embeddings main: \n{}\n", pe.pos_embeddings);
         let encoder_input = pe.forward(embeddings).unwrap();
         println!("encoder_input: \n{}\n", encoder_input);

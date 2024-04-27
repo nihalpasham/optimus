@@ -40,7 +40,8 @@ impl FeedForwardBlock {
 
         let w2b2 = VarMap::new();
         let vb_w2b2 = VarBuilder::from_varmap(&w2b2, DType::F32, device);
-
+        // note: we instantiate two VarBuilder(s) as we use the built-in `linear` helper method. Its got hardcoded 
+        // names for weights and biases.
         let linear_1 = linear(d_model, d_ff, vb_w1b1)?;
         let dropout = Dropout::new(dropout);
         let linear_2 = linear(d_ff, d_model, vb_w2b2)?;

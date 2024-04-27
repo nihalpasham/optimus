@@ -6,6 +6,7 @@ use candle_nn::{embedding, Embedding, VarBuilder};
 
 /// Holds vector embeddings for each token along with the vector dimensions and
 /// vocabulary length
+#[derive(Debug)]
 pub struct InputEmbeddings {
     #[allow(dead_code)]
     d_model: usize,
