@@ -22,25 +22,6 @@ pub struct Transformer<'a> {
 }
 
 impl<'a> Transformer<'a> {
-    pub fn new(
-        enc_embed: InputEmbeddings,
-        dec_embed: InputEmbeddings,
-        enc_pos: PosEmbeddings,
-        dec_pos: PosEmbeddings,
-        encoder: Encoder<'a>,
-        decoder: Decoder<'a>,
-        projection_layer: ProjectionLayer,
-    ) -> Self {
-        Transformer {
-            enc_embed,
-            dec_embed,
-            enc_pos,
-            dec_pos,
-            encoder,
-            decoder,
-            projection_layer,
-        }
-    }
     pub fn encode(&mut self, indices: &[u32], src_mask: bool, device: &Device) -> Result<Tensor> {
         let src_embeddings = self.enc_embed.forward(indices, &device)?;
         let src_embeddings = self.enc_pos.forward(src_embeddings)?;

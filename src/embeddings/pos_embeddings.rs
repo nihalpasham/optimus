@@ -48,7 +48,7 @@ impl PosEmbeddings {
             let odd_col = odd_embeds.get_on_dim(1, col * 2 + 1)?;
             pos_embeddings = Tensor::cat(&[&pos_embeddings, &odd_col], 0)?;
         }
-        // produces a shape of [1, Seq_Len, d_model]
+        // produces --> [1, Seq_Len, d_model]
         pos_embeddings = pos_embeddings
             .reshape((d_model, seq_len))?
             .transpose(0, 1)?
