@@ -15,10 +15,10 @@ mod encoder;
 mod feed_forward;
 mod layer_norm;
 mod multi_head_attn;
-mod residual_layer;
-mod utils;
 mod projection_layer;
+mod residual_layer;
 mod transfomer;
+mod utils;
 // mod testspace;
 mod tokenizer;
 

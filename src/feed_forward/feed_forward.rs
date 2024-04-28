@@ -1,25 +1,12 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
 use candle_nn::{linear, Dropout, Linear, VarBuilder, VarMap};
 
-use crate::utils::IsResidualLayerInput;
-
 /// Represents the FeedForwardBlock in the transformer architecture.
 #[derive(Debug)]
 pub struct FeedForwardBlock {
     linear_1: Linear,
     dropout: Dropout,
     linear_2: Linear,
-}
-
-impl IsResidualLayerInput for FeedForwardBlock {
-    fn forward(&self, x: &Tensor, _: Option<Tensor>) -> Result<Tensor> {
-        self.forward(x)
-    }
-}
-impl IsResidualLayerInput for &FeedForwardBlock {
-    fn forward(&self, x: &Tensor, _: Option<Tensor>) -> Result<Tensor> {
-        (*self).forward(x)
-    }
 }
 
 impl FeedForwardBlock {
@@ -40,7 +27,7 @@ impl FeedForwardBlock {
 
         let w2b2 = VarMap::new();
         let vb_w2b2 = VarBuilder::from_varmap(&w2b2, DType::F32, device);
-        // note: we instantiate two VarBuilder(s) as we use the built-in `linear` helper method. Its got hardcoded 
+        // note: we instantiate two VarBuilder(s) as we use the built-in `linear` helper method. Its got hardcoded
         // names for weights and biases.
         let linear_1 = linear(d_model, d_ff, vb_w1b1)?;
         let dropout = Dropout::new(dropout);

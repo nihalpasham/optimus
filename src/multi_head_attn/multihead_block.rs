@@ -1,11 +1,13 @@
 use candle_core::{DType, Device, Module, Result, Tensor};
-use candle_nn::{init, ops::{log_softmax, softmax}, Dropout, Init, Linear, VarBuilder, VarMap};
-
-use crate::utils::IsResidualLayerInput;
+use candle_nn::{
+    init, linear,
+    ops::{log_softmax, softmax},
+    Dropout, Init, Linear, VarBuilder, VarMap,
+};
 
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
 #[derive(Debug)]
-pub struct MultiHeadAttnBlock {
+pub struct MultiHeadAttnBlock<'a> {
     d_model: usize,
     /// number of num_heads
     num_heads: usize,
@@ -20,28 +22,15 @@ pub struct MultiHeadAttnBlock {
     w_v: Linear,
     /// Wo - output weight matrix
     w_o: Linear,
+    /// hold a ref to the underlying device - for storage
+    device: &'a Device,
 }
 
-impl IsResidualLayerInput for MultiHeadAttnBlock {
-    fn forward(&self, x: &Tensor, mask: Option<Tensor>) -> Result<Tensor> {
-        self.forward(x, x, x, mask)
-    }
-}
-impl IsResidualLayerInput for &MultiHeadAttnBlock {
-    fn forward(&self, x: &Tensor, mask: Option<Tensor>) -> Result<Tensor> {
-        (*self).forward(x, x, x, mask)
-    }
-}
-
-impl MultiHeadAttnBlock {
+impl<'a> MultiHeadAttnBlock<'a> {
     /// Creates an instance of a new `MultiHeadAttnBlock`. We use a `VarMap` to initialize 4 linear layers.
     /// A VarMap allows us to initialize tensors using a config (configs here refers to a distribution,
     /// ex: uniform distribution). In this case, we're using the Kaiming distribution. See [`Init`]
     /// for more details
-    ///
-    /// `linear_with_name()` is a helper function that returns the `Linear` type containing weights and biases.
-    /// This is a slightly modified version of the built-in `linear` function. An extra `&str` argument is used
-    /// to specify the weight matrices (wq, wk, wv, wo) to be inserted into the `VarMap`
     ///
     /// Note:
     /// According to the paper, the 4 linear layers have the following weights and biases
@@ -49,13 +38,13 @@ impl MultiHeadAttnBlock {
     /// Wk - [512 x 512], and Bk [512]
     /// Wv - [512 x 512], and Bv [512]
     /// Wo - [512 x 512], and Bo [512]
-    pub fn new(d_model: usize, num_heads: usize, dropout: f32, device: &Device) -> Result<Self> {
+    pub fn new(d_model: usize, num_heads: usize, dropout: f32, device: &'a Device) -> Result<Self> {
         let vmap = VarMap::new();
         let vb = VarBuilder::from_varmap(&vmap, DType::F32, device);
-        let wq = linear_with_name(d_model, d_model, "wq", vb.clone())?;
-        let wk = linear_with_name(d_model, d_model, "wk", vb.clone())?;
-        let wv = linear_with_name(d_model, d_model, "wv", vb.clone())?;
-        let wo = linear_with_name(d_model, d_model, "wo", vb)?;
+        let wq = linear(d_model, d_model, vb.pp("wq"))?;
+        let wk = linear(d_model, d_model, vb.pp("wk"))?;
+        let wv = linear(d_model, d_model, vb.pp("wv"))?;
+        let wo = linear(d_model, d_model, vb.pp("wo"))?;
 
         let dropout = Dropout::new(dropout);
         assert!(d_model % num_heads == 0);
@@ -69,10 +58,12 @@ impl MultiHeadAttnBlock {
             w_k: wk,
             w_v: wv,
             w_o: wo,
+            device,
         })
     }
 
     pub fn compute_attn_scores(
+        &self,
         query: Tensor,
         key: Tensor,
         value: Tensor,
@@ -94,7 +85,7 @@ impl MultiHeadAttnBlock {
         };
 
         let sqrt = (*head_size as f32).sqrt();
-        let t = Tensor::new(sqrt, &Device::Cpu)?;
+        let t = Tensor::new(sqrt, self.device)?;
 
         // (Batch, num_heads, Seq_Len, head_size) --> (Batch, num_heads, Seq_Len, Seq_Len)
         let attn_scores = query
@@ -118,20 +109,14 @@ impl MultiHeadAttnBlock {
         attn_scores = softmax(&attn_scores, last_dim - 1)?;
         //apply dropout
         println!("softmaxed_attn_scores: \n{}\n", attn_scores);
-        attn_scores = dropout.forward(&attn_scores, true)?;
+        attn_scores = dropout.forward(&attn_scores, false)?;
         // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, head_size)
         let final_attn_scores = attn_scores.contiguous()?.matmul(&value.contiguous()?)?;
         Ok((final_attn_scores, attn_scores))
     }
 
     /// Applying the `MultiheadAttnBlock` simply performs the following transformation
-    pub fn forward(
-        &self,
-        q: &Tensor,
-        k: &Tensor,
-        v: &Tensor,
-        mut mask: Option<Tensor>,
-    ) -> Result<Tensor> {
+    pub fn forward(&self, q: &Tensor, k: &Tensor, v: &Tensor, mask: bool) -> Result<Tensor> {
         let q_prime = self.w_q.forward(q)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let k_prime = self.w_k.forward(k)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let v_prime = self.w_v.forward(v)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
@@ -152,12 +137,12 @@ impl MultiHeadAttnBlock {
             .transpose(1, 2)?;
 
         // Apply a mask, if provided
-        mask = match mask {
-            Some(m) => Some(get_mask(seq_len, &Device::Cpu)?),
-            None => mask,
+        let mask = match mask {
+            true => Some(get_mask(seq_len, self.device)?),
+            false => None,
         };
         println!("mask: \n{:?}\n", mask.clone());
-        let (attn_scores, raw_attn_scores) = MultiHeadAttnBlock::compute_attn_scores(
+        let (attn_scores, raw_attn_scores) = self.compute_attn_scores(
             query,
             key,
             value,
@@ -194,29 +179,6 @@ pub fn masked_fill(on_false: &Tensor, mask: &Tensor, on_true: f32) -> Result<Ten
     let m = mask.where_cond(&on_true, on_false)?;
     println!("m: {:?}", m);
     Ok(m)
-}
-
-/// Create or initialize a new linear layer.
-///
-/// This does not use default names for weights and biases, namely `"weight"` and `"bias"`
-/// used in the `linear` function provided by `candle-nn`
-pub fn linear_with_name(
-    in_dim: usize,
-    out_dim: usize,
-    name: &str,
-    vs: VarBuilder,
-) -> Result<Linear> {
-    let init_ws = init::DEFAULT_KAIMING_NORMAL;
-    let ws = vs.get_with_hints((out_dim, in_dim), name, init_ws)?;
-    let bound = 1. / (in_dim as f64).sqrt();
-    let init_bs = Init::Uniform {
-        lo: -bound,
-        up: bound,
-    };
-    let mut bias = name.to_string();
-    bias.push_str(".bias");
-    let bs = vs.get_with_hints(out_dim, &bias, init_bs)?;
-    Ok(Linear::new(ws, Some(bs)))
 }
 
 #[cfg(test)]
@@ -265,7 +227,7 @@ mod tests {
     }
     #[test]
     fn test_multiheadattnblock_forward() {
-        let device = Device::Cpu;
+        let device = Device::new_metal(0).unwrap();
 
         let tokenizer = Tokenizer::from_file("./src/tokenizer/wordlevel-wiki.json").unwrap();
 
@@ -291,7 +253,7 @@ mod tests {
         let mha = MultiHeadAttnBlock::new(512, 4, 0.3, &device).unwrap();
 
         let attn = mha
-            .forward(&encoder_input, &encoder_input, &encoder_input, None)
+            .forward(&encoder_input, &encoder_input, &encoder_input, true)
             .unwrap();
         println!("\n attn_output: {}", attn);
     }

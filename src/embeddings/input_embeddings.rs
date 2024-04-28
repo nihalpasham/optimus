@@ -38,7 +38,7 @@ impl InputEmbeddings {
         })
     }
 
-    /// Creates an embedding (i.e. embedding vectors for each word) from a sequence of supplied
+    /// Creates an embedding (i.e. embedding vectors for each word) when provided with a sequence of
     /// token_ids or indices
     pub fn forward(&self, indices: &[u32], device: &Device) -> Result<Tensor> {
         let tensor = Tensor::from_slice(indices, (indices.len(),), device)?;

@@ -8,14 +8,14 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct EncoderBlock {
-    mha: MultiHeadAttnBlock,
+pub struct EncoderBlock<'a> {
+    mha: MultiHeadAttnBlock<'a>,
     ff: FeedForwardBlock,
     rconns: Vec<ResidualConnection>,
 }
 
-impl EncoderBlock {
-    pub fn new(mha: MultiHeadAttnBlock, ff: FeedForwardBlock, dropout: f32) -> Result<Self> {
+impl<'a> EncoderBlock<'a> {
+    pub fn new(mha: MultiHeadAttnBlock<'a>, ff: FeedForwardBlock, dropout: f32) -> Result<Self> {
         let mut rconns = Vec::with_capacity(2);
         for conn in 0..2 {
             rconns.push(ResidualConnection::new(dropout)?);
@@ -23,9 +23,9 @@ impl EncoderBlock {
         Ok(EncoderBlock { mha, ff, rconns })
     }
 
-    pub fn forward(&self, xs: &Tensor, src_mask: Option<Tensor>) -> Result<Tensor> {
+    pub fn forward(&self, xs: &Tensor, src_mask: bool) -> Result<Tensor> {
         let x = self.rconns[0].forward(xs, None, src_mask, SubLayers::Mha(&self.mha))?;
-        let x = self.rconns[1].forward(&x, None, None, SubLayers::Ff(&self.ff))?;
+        let x = self.rconns[1].forward(&x, None, false, SubLayers::Ff(&self.ff))?;
         Ok(x)
     }
 }

@@ -3,11 +3,11 @@ use candle_nn::Dropout;
 
 use crate::{
     feed_forward::feed_forward::FeedForwardBlock, layer_norm::norm::LayerNormalization,
-    multi_head_attn::multihead_block::MultiHeadAttnBlock, utils::IsResidualLayerInput,
+    multi_head_attn::multihead_block::MultiHeadAttnBlock,
 };
 
 pub enum SubLayers<'a> {
-    Mha(&'a MultiHeadAttnBlock),
+    Mha(&'a MultiHeadAttnBlock<'a>),
     Ff(&'a FeedForwardBlock),
 }
 #[derive(Debug)]
@@ -28,7 +28,7 @@ impl ResidualConnection {
         &self,
         xs: &Tensor,
         xa: Option<&Tensor>,
-        mask: Option<Tensor>,
+        mask: bool,
         sublayer: SubLayers,
     ) -> Result<Tensor> {
         let t = self.norm.forward(xs)?;

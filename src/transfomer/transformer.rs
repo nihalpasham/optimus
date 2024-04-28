@@ -11,24 +11,24 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Transformer {
+pub struct Transformer<'a> {
     enc_embed: InputEmbeddings,
     dec_embed: InputEmbeddings,
     enc_pos: PosEmbeddings,
     dec_pos: PosEmbeddings,
-    encoder: Encoder,
-    decoder: Decoder,
+    encoder: Encoder<'a>,
+    decoder: Decoder<'a>,
     projection_layer: ProjectionLayer,
 }
 
-impl Transformer {
+impl<'a> Transformer<'a> {
     pub fn new(
         enc_embed: InputEmbeddings,
         dec_embed: InputEmbeddings,
         enc_pos: PosEmbeddings,
         dec_pos: PosEmbeddings,
-        encoder: Encoder,
-        decoder: Decoder,
+        encoder: Encoder<'a>,
+        decoder: Decoder<'a>,
         projection_layer: ProjectionLayer,
     ) -> Self {
         Transformer {
@@ -41,12 +41,7 @@ impl Transformer {
             projection_layer,
         }
     }
-    pub fn encode(
-        &mut self,
-        indices: &[u32],
-        src_mask: Option<Tensor>,
-        device: &Device,
-    ) -> Result<Tensor> {
+    pub fn encode(&mut self, indices: &[u32], src_mask: bool, device: &Device) -> Result<Tensor> {
         let src_embeddings = self.enc_embed.forward(indices, &device)?;
         let src_embeddings = self.enc_pos.forward(src_embeddings)?;
         self.encoder.forward(src_embeddings, src_mask)
@@ -55,8 +50,8 @@ impl Transformer {
         &mut self,
         indices: &[u32],
         encoder_input: &Tensor,
-        src_mask: Option<Tensor>,
-        tgt_mask: Option<Tensor>,
+        src_mask: bool,
+        tgt_mask: bool,
         device: &Device,
     ) -> Result<Tensor> {
         let tgt_embeddings = self.dec_embed.forward(indices, &device)?;
@@ -69,19 +64,18 @@ impl Transformer {
     }
 }
 
-pub fn build_transformer(
+pub fn build_transformer<'a>(
     src_vocab_size: usize,
     tgt_vocab_size: usize,
     src_seq_len: usize,
     tgt_seq_len: usize,
-) -> Result<Transformer> {
+    device: &'a Device,
+) -> Result<Transformer<'a>> {
     let hidden_size = 6usize;
     let d_model = 512usize;
     let d_ff = 2048usize;
     let num_heads = 8usize;
     let dropout = 0.1;
-
-    let device = Device::new_metal(0)?;
 
     let src_embeds = InputEmbeddings::new(src_vocab_size, d_model, &device)?;
     let tgt_embeds = InputEmbeddings::new(tgt_vocab_size, d_model, &device)?;

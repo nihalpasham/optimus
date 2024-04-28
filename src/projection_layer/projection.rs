@@ -1,4 +1,4 @@
-use candle_core::{Device, Module, Result, Storage, Tensor, Var, DType};
+use candle_core::{DType, Device, Module, Result, Storage, Tensor, Var};
 use candle_nn::{linear, ops::log_softmax, Linear, VarBuilder, VarMap};
 
 #[derive(Debug, Clone)]
@@ -18,4 +18,3 @@ impl ProjectionLayer {
         log_softmax(&p, last_dim)
     }
 }
- 

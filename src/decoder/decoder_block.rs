@@ -10,17 +10,17 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct DecoderBlock {
-    self_attn: MultiHeadAttnBlock,
-    cross_attn: MultiHeadAttnBlock,
+pub struct DecoderBlock<'a> {
+    self_attn: MultiHeadAttnBlock<'a>,
+    cross_attn: MultiHeadAttnBlock<'a>,
     ff: FeedForwardBlock,
     rconns: Vec<ResidualConnection>,
 }
 
-impl DecoderBlock {
+impl<'a> DecoderBlock<'a> {
     pub fn new(
-        self_attn: MultiHeadAttnBlock,
-        cross_attn: MultiHeadAttnBlock,
+        self_attn: MultiHeadAttnBlock<'a>,
+        cross_attn: MultiHeadAttnBlock<'a>,
         ff: FeedForwardBlock,
         dropout: f32,
     ) -> Result<Self> {
@@ -35,13 +35,13 @@ impl DecoderBlock {
             rconns,
         })
     }
- 
+
     pub fn forward(
         &self,
         xs: &Tensor,
         encoder_output: &Tensor,
-        src_mask: Option<Tensor>,
-        tgt_mask: Option<Tensor>,
+        src_mask: bool,
+        tgt_mask: bool,
     ) -> Result<Tensor> {
         let x = self.rconns[0].forward(xs, None, src_mask, SubLayers::Mha(&self.self_attn))?;
         let x = self.rconns[1].forward(
@@ -50,7 +50,7 @@ impl DecoderBlock {
             tgt_mask,
             SubLayers::Mha(&self.cross_attn),
         )?;
-        let x = self.rconns[2].forward(&x, None, None, SubLayers::Ff(&self.ff))?;
+        let x = self.rconns[2].forward(&x, None, false, SubLayers::Ff(&self.ff))?;
         Ok(x)
     }
 }

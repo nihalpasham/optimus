@@ -3,13 +3,13 @@ use crate::layer_norm::norm::LayerNormalization;
 use candle_core::{Result, Tensor};
 
 #[derive(Debug)]
-pub struct Decoder {
-    layers: Vec<DecoderBlock>,
+pub struct Decoder<'a> {
+    layers: Vec<DecoderBlock<'a>>,
     norm: LayerNormalization,
 }
 
-impl Decoder {
-    pub fn new(layers: Vec<DecoderBlock>) -> Result<Self> {
+impl<'a> Decoder<'a> {
+    pub fn new(layers: Vec<DecoderBlock<'a>>) -> Result<Self> {
         let norm = LayerNormalization::new()?;
         Ok(Decoder { layers, norm })
     }
@@ -17,11 +17,11 @@ impl Decoder {
         &self,
         mut xs: Tensor,
         encoder_ouput: &Tensor,
-        tgt_msk: Option<Tensor>,
-        src_mask: Option<Tensor>,
+        tgt_msk: bool,
+        src_mask: bool,
     ) -> Result<Tensor> {
         for blk in self.layers.iter() {
-            xs = blk.forward(&xs, encoder_ouput, src_mask.clone(), tgt_msk.clone())?
+            xs = blk.forward(&xs, encoder_ouput, src_mask, tgt_msk)?
         }
         self.norm.forward(&xs)
     }
@@ -87,9 +87,8 @@ mod tests {
         let dummy_encoder_output = decoder_input.clone();
 
         let decoder = Decoder::new(layers).unwrap();
-        let src_mask = Some(Tensor::new(0f32, &device).unwrap());
         let t = decoder
-            .forward(decoder_input, &dummy_encoder_output, None, src_mask)
+            .forward(decoder_input, &dummy_encoder_output, false, true)
             .unwrap();
         println!("Decoder_output: \n{}\n", t);
     }

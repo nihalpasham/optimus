@@ -3,19 +3,19 @@ use crate::layer_norm::norm::LayerNormalization;
 use candle_core::{Result, Tensor};
 
 #[derive(Debug)]
-pub struct Encoder {
-    layers: Vec<EncoderBlock>,
+pub struct Encoder<'a> {
+    layers: Vec<EncoderBlock<'a>>,
     norm: LayerNormalization,
 }
 
-impl Encoder {
-    pub fn new(layers: Vec<EncoderBlock>) -> Result<Self> {
+impl<'a> Encoder<'a> {
+    pub fn new(layers: Vec<EncoderBlock<'a>>) -> Result<Self> {
         let norm = LayerNormalization::new()?;
         Ok(Encoder { layers, norm })
     }
-    pub fn forward(&self, mut xs: Tensor, src_mask: Option<Tensor>) -> Result<Tensor> {
+    pub fn forward(&self, mut xs: Tensor, src_mask: bool) -> Result<Tensor> {
         for blk in self.layers.iter() {
-            xs = blk.forward(&xs, src_mask.clone())?
+            xs = blk.forward(&xs, src_mask)?
         }
         self.norm.forward(&xs)
     }
@@ -81,7 +81,7 @@ mod tests {
 
         let encoder = Encoder::new(layers).unwrap();
         // println!("encoder: \n{:?}\n", encoder);
-        let t = encoder.forward(encoder_input, None).unwrap();
+        let t = encoder.forward(encoder_input, false).unwrap();
         println!("encoder_output: \n{}\n", t);
     }
 }
