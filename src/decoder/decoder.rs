@@ -2,17 +2,75 @@ use super::decoder_block::DecoderBlock;
 use crate::layer_norm::norm::LayerNormalization;
 use candle_core::{Result, Tensor};
 
+/// The `Decoder` represents the decoder component of the Transformer architecture.
+/// It consists of a series of `DecoderBlock` layers, followed by a layer normalization step.
+///
+/// The decoder takes in the previous decoder outputs and the encoder output, and produces
+/// the next decoder output by applying multi-head self-attention, multi-head cross-attention,
+/// and feed-forward neural network layers in each `DecoderBlock`. The self-attention allows
+/// the decoder to attend to the previous outputs, while the cross-attention allows it to
+/// attend to the encoder output, enabling the decoder to incorporate information from the
+/// input sequence.
+///
+/// The final decoder output is produced by passing the output of the last `DecoderBlock`
+/// through a layer normalization module.
+///
+/// # Example
+///
+/// ```rust
+/// use transformer::decoder::Decoder;
+/// use transformer::decoder_block::DecoderBlock;
+///
+/// // Create the decoder blocks
+/// let decoder_blocks: Vec<DecoderBlock> = /* ... */;
+///
+/// // Create the decoder
+/// let decoder = Decoder::new(decoder_blocks).unwrap();
+///
+/// // Perform the forward pass
+/// let decoder_output = decoder.forward(
+///     prev_decoder_output,
+///     &encoder_output,
+///     true, // Apply target mask
+///     false, // Don't apply source mask
+/// ).unwrap();
+/// ```
 #[derive(Debug)]
 pub struct Decoder<'a> {
+    /// The vector of `DecoderBlock` layers that make up the decoder.
     layers: Vec<DecoderBlock<'a>>,
+    /// The layer normalization module applied after the decoder blocks.
     norm: LayerNormalization,
 }
 
 impl<'a> Decoder<'a> {
+    // Creates a new `Decoder` instance with the given `DecoderBlock` layers.
+    ///
+    /// # Arguments
+    ///
+    /// * `layers` - The vector of `DecoderBlock` layers.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the new `Decoder` instance on success, or an error if
+    /// the layer normalization module could not be created.
     pub fn new(layers: Vec<DecoderBlock<'a>>) -> Result<Self> {
         let norm = LayerNormalization::new()?;
         Ok(Decoder { layers, norm })
     }
+    /// Performs the forward pass through the decoder component.
+    ///
+    /// # Arguments
+    ///
+    /// * `xs` - The input tensor representing the previous decoder outputs.
+    /// * `encoder_output` - The output tensor from the encoder part of the Transformer.
+    /// * `tgt_msk` - A boolean indicating whether to apply a mask to the previous decoder outputs.
+    /// * `src_mask` - A boolean indicating whether to apply a mask to the encoder output.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the output tensor after applying the decoder blocks and
+    /// layer normalization, or an error if any of the decoder block operations failed.
     pub fn forward(
         &self,
         mut xs: Tensor,
