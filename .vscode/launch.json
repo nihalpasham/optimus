@@ -1,0 +1,58 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'optimus'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=optimus",
+                    "--package=optimus"
+                ],
+                "filter": {
+                    "name": "optimus",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'optimus'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=optimus",
+                    "--package=optimus"
+                ],
+                "filter": {
+                    "name": "optimus",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Metal Kernel Launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                ],
+            },
+            "args": ["test_metal_kernel_launch", "--nocapture"],
+            "cwd": "${workspaceFolder}"
+        },
+    ],
+}

@@ -54,6 +54,17 @@ mod tests {
     use super::*;
     use candle_core::Device;
     use tokenizers::Tokenizer;
+    
+    #[test]
+    fn test_metal_kernel_launch() {
+        let x = 2048usize;
+        let y = 512usize;
+        let device = Device::new_metal(0).unwrap();
+        let a = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
+        let b = Tensor::randn(0f32, 1., (y, x), &device).unwrap();
+        let result = a.matmul(&b).unwrap();
+        println!("result: {}", result);   
+    }
 
     #[test]
     fn verify_input_embeddings_new() {

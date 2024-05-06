@@ -4,9 +4,12 @@ use candle_core::Device;
 use candle_nn::Dropout;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use crate::embeddings::{
-    input_embeddings::InputEmbeddings,
-    pos_embeddings::{self, PosEmbeddings},
+use crate::{
+    embeddings::{
+        input_embeddings::InputEmbeddings,
+        pos_embeddings::{self, PosEmbeddings},
+    },
+    multi_head_attn::multihead_block::MultiHeadAttnBlock,
 };
 
 mod decoder;
