@@ -30,7 +30,7 @@ mod tests {
     use tokenizers::Tokenizer;
 
     use crate::{
-        embeddings::{input_embeddings::InputEmbeddings, pos_embeddings::PosEmbeddings},
+        embeddings::{input_embeddings::{InputEmbeddings, SortedNodes}, pos_embeddings::PosEmbeddings},
         feed_forward::feed_forward::FeedForwardBlock,
         multi_head_attn::multihead_block::MultiHeadAttnBlock,
     };
@@ -83,5 +83,7 @@ mod tests {
         // println!("encoder: \n{:?}\n", encoder);
         let t = encoder.forward(encoder_input, false).unwrap();
         println!("encoder_output: \n{}\n", t);
+        let sorted_nodes  = t.new_sorted_nodes();
+        println!("sorted_nodes: \n{:?}\n", sorted_nodes);
     }
 }

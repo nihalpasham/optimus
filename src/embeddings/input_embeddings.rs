@@ -1,4 +1,5 @@
-use candle_core::{DType, Module};
+use candle_core::{DType, Module, TensorId, op::{Op, UnaryOp, ReduceOp}};
+
 use std::collections::HashMap;
 
 use candle_core::{Device, Result, Tensor};
@@ -49,21 +50,170 @@ impl InputEmbeddings {
     }
 }
 
+pub trait SortedNodes {
+    fn new_sorted_nodes(&self) -> Vec<&Tensor> ;
+}
+impl SortedNodes for Tensor {
+    /// Return all the nodes that lead to this value in a topologically sorted vec, the first
+    /// elements having dependencies on the latter ones, e.g. the first element if any is the
+    /// argument.
+    /// This assumes that the op graph is a DAG.
+    fn new_sorted_nodes(&self) -> Vec<&Tensor> {
+        // The vec of sorted nodes is passed as an owned value rather than a mutable reference
+        // to get around some lifetime limitations.
+        fn walk<'a>(
+            node: &'a Tensor,
+            nodes: Vec<&'a Tensor>,
+            already_seen: &mut HashMap<TensorId, bool>,
+        ) -> (bool, Vec<&'a Tensor>) {
+            if let Some(&tg) = already_seen.get(&node.id()) {
+                return (tg, nodes);
+            }
+            let mut track_grad = false;
+            let mut nodes = if node.is_variable() {
+                // Do not call recursively on the "leaf" nodes.
+                track_grad = true;
+                // println!("is_variable");
+                nodes
+            } else if node.dtype().is_int() {
+                // println!("is_init");
+                nodes
+            } else if let Some(op) = node.op() {
+                match op {
+                    Op::IndexAdd(t1, t2, t3, _)
+                    | Op::ScatterAdd(t1, t2, t3, _)
+                    | Op::CustomOp3(t1, t2, t3, _)
+                    | Op::WhereCond(t1, t2, t3) => {
+                        let (tg, nodes) = walk(t1, nodes, already_seen);
+                        track_grad |= tg;
+                        let (tg, nodes) = walk(t2, nodes, already_seen);
+                        track_grad |= tg;
+                        let (tg, nodes) = walk(t3, nodes, already_seen);
+                        track_grad |= tg;
+                        nodes
+                    }
+                    Op::Conv1D {
+                        arg: lhs,
+                        kernel: rhs,
+                        ..
+                    }
+                    | Op::ConvTranspose1D {
+                        arg: lhs,
+                        kernel: rhs,
+                        ..
+                    }
+                    | Op::Conv2D {
+                        arg: lhs,
+                        kernel: rhs,
+                        ..
+                    }
+                    | Op::ConvTranspose2D {
+                        arg: lhs,
+                        kernel: rhs,
+                        ..
+                    }
+                    | Op::CustomOp2(lhs, rhs, _)
+                    | Op::Binary(lhs, rhs, _)
+                    | Op::Gather(lhs, rhs, _)
+                    | Op::IndexSelect(lhs, rhs, _)
+                    | Op::Matmul(lhs, rhs)
+                    | Op::SliceScatter0(lhs, rhs, _) => {
+                        let (tg, nodes) = walk(lhs, nodes, already_seen);
+                        track_grad |= tg;
+                        let (tg, nodes) = walk(rhs, nodes, already_seen);
+                        track_grad |= tg;
+                        nodes
+                    }
+                    Op::Cat(args, _) => args.iter().fold(nodes, |nodes, arg| {
+                        let (tg, nodes) = walk(arg, nodes, already_seen);
+                        track_grad |= tg;
+                        nodes
+                    }),
+                    Op::Affine { arg, mul, .. } => {
+                        if *mul == 0. {
+                            nodes
+                        } else {
+                            let (tg, nodes) = walk(arg, nodes, already_seen);
+                            track_grad |= tg;
+                            nodes
+                        }
+                    }
+                    Op::Unary(_node, UnaryOp::Ceil)
+                    | Op::Unary(_node, UnaryOp::Floor)
+                    | Op::Unary(_node, UnaryOp::Round)
+                    | Op::Unary(_node, UnaryOp::Sign) => nodes,
+                    Op::Reshape(node)
+                    | Op::UpsampleNearest1D { arg: node, .. }
+                    | Op::UpsampleNearest2D { arg: node, .. }
+                    | Op::AvgPool2D { arg: node, .. }
+                    | Op::MaxPool2D { arg: node, .. }
+                    | Op::Copy(node)
+                    | Op::Broadcast(node)
+                    | Op::Cmp(node, _)
+                    | Op::Reduce(node, ReduceOp::Min | ReduceOp::Sum | ReduceOp::Max, _)
+                    | Op::ToDevice(node)
+                    | Op::Transpose(node, _, _)
+                    | Op::Permute(node, _)
+                    | Op::Narrow(node, _, _, _)
+                    | Op::Unary(node, _)
+                    | Op::Elu(node, _)
+                    | Op::Powf(node, _)
+                    | Op::CustomOp1(node, _) => {
+                        let (tg, nodes) = walk(node, nodes, already_seen);
+                        track_grad |= tg;
+                        nodes
+                    }
+                    Op::ToDType(node) => {
+                        if node.dtype().is_float() {
+                            let (tg, nodes) = walk(node, nodes, already_seen);
+                            track_grad |= tg;
+                            nodes
+                        } else {
+                            nodes
+                        }
+                    }
+                    Op::Reduce(_, ReduceOp::ArgMin | ReduceOp::ArgMax, _) => nodes,
+                }
+            } else {
+                nodes
+            };
+            already_seen.insert(node.id(), track_grad);
+            if track_grad {
+                nodes.push(node);
+            }
+            (track_grad, nodes)
+        }
+        println!("\n in sorted nodes");
+        let (_tg, mut nodes) = walk(self, vec![], &mut HashMap::new());
+        nodes.reverse();
+        nodes
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use candle_core::Device;
     use tokenizers::Tokenizer;
-    
+
     #[test]
     fn test_metal_kernel_launch() {
         let x = 2048usize;
         let y = 512usize;
         let device = Device::new_metal(0).unwrap();
-        let a = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
-        let b = Tensor::randn(0f32, 1., (y, x), &device).unwrap();
-        let result = a.matmul(&b).unwrap();
-        println!("result: {}", result);   
+        let t = Tensor::arange(0., 1., &device).unwrap();
+        let v1 = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
+        let v2 = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
+
+        let v2 = v1.matmul(&v2).unwrap();
+        let v3 = (&v1 + &v2).unwrap();
+        let v4 = (&v3 - &v2).unwrap();
+        let v5 = (&v4 * &v2).unwrap();
+        let v6 = (v5.tanh()).unwrap();
+        
+        let tp = v6.new_sorted_nodes();
+        println!("topological order: {:?}", tp);
+        println!("f: {}", v6);
     }
 
     #[test]
@@ -87,5 +237,7 @@ mod tests {
         let embeddings = input_embeddings.forward(&token_ids, &device).unwrap();
 
         println!("vector embeddings:\n {}\n", embeddings);
+        let sorted_nodes  = embeddings.new_sorted_nodes();
+        println!("sorted_nodes: \n{:?}\n", sorted_nodes);
     }
 }

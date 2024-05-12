@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-candle-core = { version = "*", features = ["metal"] }
-candle-nn = { version = "*", features = ["metal"] }
+candle-core = { git = "https://github.com/huggingface/candle.git", features = ["metal"] }
+candle-nn = { git = "https://github.com/huggingface/candle.git", features = ["metal"] }
 tokenizers = "*"
 

@@ -93,7 +93,7 @@ impl<'a> MultiHeadAttnBlock<'a> {
             .matmul(&key.t()?.contiguous()?)?
             .broadcast_div(&t)?;
 
-        println!("raw_attn_scores: \n{}\n", attn_scores);
+        // println!("raw_attn_scores: \n{}\n", attn_scores);
         // apply mask
         let mut attn_scores = match mask {
             Some(m) => masked_fill(
@@ -103,12 +103,12 @@ impl<'a> MultiHeadAttnBlock<'a> {
             )?,
             None => attn_scores,
         };
-        println!("masked_attn_scores: \n{}\n", attn_scores);
+        // println!("masked_attn_scores: \n{}\n", attn_scores);
         let last_dim = attn_scores.dims().len();
         // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, Seq_Len)
         attn_scores = softmax(&attn_scores, last_dim - 1)?;
         //apply dropout
-        println!("softmaxed_attn_scores: \n{}\n", attn_scores);
+        // println!("softmaxed_attn_scores: \n{}\n", attn_scores);
         attn_scores = dropout.forward(&attn_scores, false)?;
         // (Batch, num_heads, Seq_Len, Seq_Len) --> (Batch, num_heads, Seq_Len, head_size)
         let final_attn_scores = attn_scores.contiguous()?.matmul(&value.contiguous()?)?;
@@ -120,13 +120,13 @@ impl<'a> MultiHeadAttnBlock<'a> {
         let q_prime = self.w_q.forward(q)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let k_prime = self.w_k.forward(k)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let v_prime = self.w_v.forward(v)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
-        println!("q_prime: {}", q_prime);
+        // println!("q_prime: {}", q_prime);
         let (b_size, seq_len, _) = q.dims3()?;
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let query = q_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
             .transpose(1, 2)?;
-        println!("query: \n{}\n", query);
+        // println!("query: \n{}\n", query);
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let key = k_prime
             .reshape((b_size, seq_len, self.num_heads, self.head_size))?
@@ -141,7 +141,7 @@ impl<'a> MultiHeadAttnBlock<'a> {
             true => Some(get_mask(seq_len, self.device)?),
             false => None,
         };
-        println!("mask: \n{:?}\n", mask.clone());
+        // println!("mask: \n{:?}\n", mask.clone());
         let (attn_scores, raw_attn_scores) = self.compute_attn_scores(
             query,
             key,
@@ -151,7 +151,7 @@ impl<'a> MultiHeadAttnBlock<'a> {
             self.num_heads,
             &self.dropout,
         )?;
-        println!("final_attn_scores: {}", attn_scores);
+        // println!("final_attn_scores: {}", attn_scores);
         // (Batch, num_heads, Seq_Len, head_size) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, Seq_Len, d_model)
         let res = attn_scores.transpose(1, 2)?.contiguous()?.reshape((
             b_size,
@@ -173,11 +173,11 @@ pub fn get_mask(size: usize, device: &Device) -> Result<Tensor> {
 
 pub fn masked_fill(on_false: &Tensor, mask: &Tensor, on_true: f32) -> Result<Tensor> {
     let shape = mask.shape();
-    println!("Shape: {:?}", shape);
+    // println!("Shape: {:?}", shape);
     let on_true = Tensor::new(on_true, on_false.device())?.broadcast_as(shape.dims())?;
-    println!("on_true: {}", on_true);
+    // println!("on_true: {}", on_true);
     let m = mask.where_cond(&on_true, on_false)?;
-    println!("m: {:?}", m);
+    // println!("m: {:?}", m);
     Ok(m)
 }
 
@@ -186,7 +186,7 @@ mod tests {
     use candle_core::test_utils::to_vec2_round;
     use tokenizers::Tokenizer;
 
-    use crate::embeddings::{input_embeddings::InputEmbeddings, pos_embeddings::PosEmbeddings};
+    use crate::embeddings::{input_embeddings::{InputEmbeddings, SortedNodes}, pos_embeddings::PosEmbeddings};
 
     use super::*;
 
@@ -256,5 +256,48 @@ mod tests {
             .forward(&encoder_input, &encoder_input, &encoder_input, true)
             .unwrap();
         println!("\n attn_output: {}", attn);
+        let sorted_nodes  = attn.new_sorted_nodes();
+        // println!("sorted_nodes: \n{:?}\n", sorted_nodes);
+        for node in sorted_nodes.iter() {
+            let op = match node.op() {
+                Some(op) => match op {
+                    candle_core::op::Op::Binary(_, _, _) => println!("binary op"),
+                    candle_core::op::Op::Unary(_, _) => println!("unary op"),
+                    candle_core::op::Op::Cmp(_, _) => println!("cmp op"),
+                    candle_core::op::Op::Reduce(_, _, _) => println!("reduce op"),
+                    candle_core::op::Op::Matmul(_, _) => println!("matmul op"),
+                    candle_core::op::Op::Gather(_, _, _) => println!("gather op"),
+                    candle_core::op::Op::ScatterAdd(_, _, _, _) => println!("scatterAdd op"),
+                    candle_core::op::Op::IndexSelect(_, _, _) => println!("indexselect op"),
+                    candle_core::op::Op::IndexAdd(_, _, _, _) => println!("indexadd op"),
+                    candle_core::op::Op::WhereCond(_, _, _) => println!("where cond op"),
+                    candle_core::op::Op::Conv1D { arg, kernel, padding, stride, dilation } => println!("conv1d op"),
+                    candle_core::op::Op::ConvTranspose1D { arg, kernel, padding, output_padding, stride, dilation } => println!("convtranspose1d op"),
+                    candle_core::op::Op::Conv2D { arg, kernel, padding, stride, dilation } => println!("conv2d op"),
+                    candle_core::op::Op::ConvTranspose2D { arg, kernel, padding, output_padding, stride, dilation } => println!("conv2d transpose op"),
+                    candle_core::op::Op::AvgPool2D { arg, kernel_size, stride } => println!("avgpool2d op"),
+                    candle_core::op::Op::MaxPool2D { arg, kernel_size, stride } => println!("maxpool2d op"),
+                    candle_core::op::Op::UpsampleNearest1D { arg, target_size } => println!("upsamplenearest1d op"),
+                    candle_core::op::Op::UpsampleNearest2D { arg, target_h, target_w } => println!("upsamplenearest2d op"),
+                    candle_core::op::Op::Cat(_, _) => println!("cat op"),
+                    candle_core::op::Op::Affine { arg, mul, add } => println!("affine op"),
+                    candle_core::op::Op::ToDType(_) => println!("todtype op"),
+                    candle_core::op::Op::Copy(_) => println!("copy op"),
+                    candle_core::op::Op::Broadcast(_) => println!("broadcast op"),
+                    candle_core::op::Op::Narrow(_, _, _, _) => println!("narrow op"),
+                    candle_core::op::Op::SliceScatter0(_, _, _) => println!("slicescatter0 op"),
+                    candle_core::op::Op::Reshape(_) => println!("reshape op"),
+                    candle_core::op::Op::ToDevice(_) => println!("todevice op"),
+                    candle_core::op::Op::Transpose(_, _, _) => println!("transpose op"),
+                    candle_core::op::Op::Permute(_, _) => println!("permute op"),
+                    candle_core::op::Op::Elu(_, _) => println!("elu op"),
+                    candle_core::op::Op::Powf(_, _) => println!("powf op"),
+                    candle_core::op::Op::CustomOp1(_, _) => println!("custom1 op"),
+                    candle_core::op::Op::CustomOp2(_, _, _) => println!("custom2 op"),
+                    candle_core::op::Op::CustomOp3(_, _, _, _) => println!("custom3 op"),
+                }
+                None => println!("none"),
+            };
+        }
     }
 }
