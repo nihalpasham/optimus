@@ -5,6 +5,8 @@ use candle_nn::{
     Dropout, Init, Linear, VarBuilder, VarMap,
 };
 
+use crate::embeddings::input_embeddings::SortedNodes;
+
 /// Represents the `Multi-Head Attention Block` in the transformer architecture.
 #[derive(Debug)]
 pub struct MultiHeadAttnBlock<'a> {
@@ -93,6 +95,8 @@ impl<'a> MultiHeadAttnBlock<'a> {
             .matmul(&key.t()?.contiguous()?)?
             .broadcast_div(&t)?;
 
+        // let sorted_nodes = attn_scores.sort_nodes();
+        // Tensor::get_op_graph(sorted_nodes);
         // println!("raw_attn_scores: \n{}\n", attn_scores);
         // apply mask
         let mut attn_scores = match mask {
@@ -120,7 +124,7 @@ impl<'a> MultiHeadAttnBlock<'a> {
         let q_prime = self.w_q.forward(q)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let k_prime = self.w_k.forward(k)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         let v_prime = self.w_v.forward(v)?; // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
-        // println!("q_prime: {}", q_prime);
+                                            // println!("q_prime: {}", q_prime);
         let (b_size, seq_len, _) = q.dims3()?;
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, num_heads, head_size) --> (Batch, num_heads, Seq_Len, head_size)
         let query = q_prime
@@ -158,7 +162,9 @@ impl<'a> MultiHeadAttnBlock<'a> {
             seq_len,
             self.num_heads * self.head_size,
         ))?;
-
+        
+        let sorted_nodes = res.sort_nodes();
+        Tensor::get_op_graph(sorted_nodes);
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         Ok((self.w_o.forward(&res))?)
     }
@@ -186,7 +192,10 @@ mod tests {
     use candle_core::test_utils::to_vec2_round;
     use tokenizers::Tokenizer;
 
-    use crate::embeddings::{input_embeddings::{InputEmbeddings, SortedNodes}, pos_embeddings::PosEmbeddings};
+    use crate::embeddings::{
+        input_embeddings::{InputEmbeddings, SortedNodes},
+        pos_embeddings::PosEmbeddings,
+    };
 
     use super::*;
 
@@ -256,48 +265,7 @@ mod tests {
             .forward(&encoder_input, &encoder_input, &encoder_input, true)
             .unwrap();
         println!("\n attn_output: {}", attn);
-        let sorted_nodes  = attn.new_sorted_nodes();
-        // println!("sorted_nodes: \n{:?}\n", sorted_nodes);
-        for node in sorted_nodes.iter() {
-            let op = match node.op() {
-                Some(op) => match op {
-                    candle_core::op::Op::Binary(_, _, _) => println!("binary op"),
-                    candle_core::op::Op::Unary(_, _) => println!("unary op"),
-                    candle_core::op::Op::Cmp(_, _) => println!("cmp op"),
-                    candle_core::op::Op::Reduce(_, _, _) => println!("reduce op"),
-                    candle_core::op::Op::Matmul(_, _) => println!("matmul op"),
-                    candle_core::op::Op::Gather(_, _, _) => println!("gather op"),
-                    candle_core::op::Op::ScatterAdd(_, _, _, _) => println!("scatterAdd op"),
-                    candle_core::op::Op::IndexSelect(_, _, _) => println!("indexselect op"),
-                    candle_core::op::Op::IndexAdd(_, _, _, _) => println!("indexadd op"),
-                    candle_core::op::Op::WhereCond(_, _, _) => println!("where cond op"),
-                    candle_core::op::Op::Conv1D { arg, kernel, padding, stride, dilation } => println!("conv1d op"),
-                    candle_core::op::Op::ConvTranspose1D { arg, kernel, padding, output_padding, stride, dilation } => println!("convtranspose1d op"),
-                    candle_core::op::Op::Conv2D { arg, kernel, padding, stride, dilation } => println!("conv2d op"),
-                    candle_core::op::Op::ConvTranspose2D { arg, kernel, padding, output_padding, stride, dilation } => println!("conv2d transpose op"),
-                    candle_core::op::Op::AvgPool2D { arg, kernel_size, stride } => println!("avgpool2d op"),
-                    candle_core::op::Op::MaxPool2D { arg, kernel_size, stride } => println!("maxpool2d op"),
-                    candle_core::op::Op::UpsampleNearest1D { arg, target_size } => println!("upsamplenearest1d op"),
-                    candle_core::op::Op::UpsampleNearest2D { arg, target_h, target_w } => println!("upsamplenearest2d op"),
-                    candle_core::op::Op::Cat(_, _) => println!("cat op"),
-                    candle_core::op::Op::Affine { arg, mul, add } => println!("affine op"),
-                    candle_core::op::Op::ToDType(_) => println!("todtype op"),
-                    candle_core::op::Op::Copy(_) => println!("copy op"),
-                    candle_core::op::Op::Broadcast(_) => println!("broadcast op"),
-                    candle_core::op::Op::Narrow(_, _, _, _) => println!("narrow op"),
-                    candle_core::op::Op::SliceScatter0(_, _, _) => println!("slicescatter0 op"),
-                    candle_core::op::Op::Reshape(_) => println!("reshape op"),
-                    candle_core::op::Op::ToDevice(_) => println!("todevice op"),
-                    candle_core::op::Op::Transpose(_, _, _) => println!("transpose op"),
-                    candle_core::op::Op::Permute(_, _) => println!("permute op"),
-                    candle_core::op::Op::Elu(_, _) => println!("elu op"),
-                    candle_core::op::Op::Powf(_, _) => println!("powf op"),
-                    candle_core::op::Op::CustomOp1(_, _) => println!("custom1 op"),
-                    candle_core::op::Op::CustomOp2(_, _, _) => println!("custom2 op"),
-                    candle_core::op::Op::CustomOp3(_, _, _, _) => println!("custom3 op"),
-                }
-                None => println!("none"),
-            };
-        }
+        // let sorted_nodes  = attn.sort_nodes();
+        // Tensor::get_op_graph(sorted_nodes);
     }
 }

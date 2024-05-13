@@ -86,8 +86,6 @@ mod tests {
         let device = Device::new_metal(0).unwrap();
         let pe = PosEmbeddings::new(8, 512, Dropout::new(0.3), &device).unwrap();
         println!("positional embeddings: {}\n", pe.pos_embeddings);
-        let sorted_nodes  = pe.pos_embeddings.new_sorted_nodes();
-        println!("sorted_nodes: \n{:?}\n", sorted_nodes);
     }
 
     #[test]
@@ -114,8 +112,5 @@ mod tests {
         println!("pos_embeddings main: \n{}\n", pe.pos_embeddings);
         let encoder_input = pe.forward(embeddings).unwrap();
         println!("encoder_input: \n{}\n", encoder_input);
-
-        let sorted_nodes  = encoder_input.new_sorted_nodes();
-        println!("sorted_nodes: \n{:?}\n", sorted_nodes);
     }
 }

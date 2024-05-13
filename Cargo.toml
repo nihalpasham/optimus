@@ -10,3 +10,8 @@ candle-core = { git = "https://github.com/huggingface/candle.git", features = ["
 candle-nn = { git = "https://github.com/huggingface/candle.git", features = ["metal"] }
 tokenizers = "*"
 
+[patch."https://github.com/huggingface/candle.git"]
+candle-core = {git = "https://github.com/nihalpasham/candle"}
+candle-nn = {git = "https://github.com/nihalpasham/candle"}
+
+

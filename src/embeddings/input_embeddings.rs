@@ -1,4 +1,7 @@
-use candle_core::{DType, Module, TensorId, op::{Op, UnaryOp, ReduceOp}};
+use candle_core::{
+    op::{Op, ReduceOp, UnaryOp},
+    DType, Module, TensorId,
+};
 
 use std::collections::HashMap;
 
@@ -51,14 +54,15 @@ impl InputEmbeddings {
 }
 
 pub trait SortedNodes {
-    fn new_sorted_nodes(&self) -> Vec<&Tensor> ;
+    fn sort_nodes(&self) -> Vec<&Tensor>;
+    fn get_op_graph(sorted_nodes: Vec<&Tensor>);
 }
 impl SortedNodes for Tensor {
     /// Return all the nodes that lead to this value in a topologically sorted vec, the first
     /// elements having dependencies on the latter ones, e.g. the first element if any is the
     /// argument.
     /// This assumes that the op graph is a DAG.
-    fn new_sorted_nodes(&self) -> Vec<&Tensor> {
+    fn sort_nodes(&self) -> Vec<&Tensor> {
         // The vec of sorted nodes is passed as an owned value rather than a mutable reference
         // to get around some lifetime limitations.
         fn walk<'a>(
@@ -188,32 +192,137 @@ impl SortedNodes for Tensor {
         nodes.reverse();
         nodes
     }
+
+    fn get_op_graph(sorted_nodes: Vec<&Tensor>) {
+        for node in sorted_nodes.iter() {
+            let op = match node.op() {
+                Some(op) => match op {
+                    candle_core::op::Op::Binary(a, b, c) => {
+                        println!("BinaryOp: {:?}, arg1: {:?}, arg2: {:?}", c, a.id(), b.id())
+                    }
+                    candle_core::op::Op::Unary(a, b) => {
+                        println!("UnaryOp: {:?}, arg: {:?}", b, a.id())
+                    }
+                    candle_core::op::Op::Cmp(a, b) => println!("CmpOp:"),
+                    candle_core::op::Op::Reduce(a, b, c) => println!("ReduceOp: {:?}", b),
+                    candle_core::op::Op::Matmul(a, b) => {
+                        println!("MatmulOp: arg1: {:?}, arg2: {:?}", a.id(), b.id())
+                    }
+                    candle_core::op::Op::Gather(a, b, c) => println!("GatherOp: {:?}", c),
+                    candle_core::op::Op::ScatterAdd(_, _, _, _) => println!("scatterAdd op"),
+                    candle_core::op::Op::IndexSelect(_, _, _) => println!("indexselect op"),
+                    candle_core::op::Op::IndexAdd(_, _, _, _) => println!("indexadd op"),
+                    candle_core::op::Op::WhereCond(a, b, c) => println!(
+                        "WhereCondOp: arg1: {:?}, arg2: {:?}, arg3: {:?}",
+                        a.id(),
+                        b.id(),
+                        c.id()
+                    ),
+                    candle_core::op::Op::Conv1D {
+                        arg,
+                        kernel,
+                        padding,
+                        stride,
+                        dilation,
+                    } => println!("conv1d op"),
+                    candle_core::op::Op::ConvTranspose1D {
+                        arg,
+                        kernel,
+                        padding,
+                        output_padding,
+                        stride,
+                        dilation,
+                    } => println!("convtranspose1d op"),
+                    candle_core::op::Op::Conv2D {
+                        arg,
+                        kernel,
+                        padding,
+                        stride,
+                        dilation,
+                    } => println!("conv2d op"),
+                    candle_core::op::Op::ConvTranspose2D {
+                        arg,
+                        kernel,
+                        padding,
+                        output_padding,
+                        stride,
+                        dilation,
+                    } => println!("conv2d transpose op"),
+                    candle_core::op::Op::AvgPool2D {
+                        arg,
+                        kernel_size,
+                        stride,
+                    } => println!("avgpool2d op"),
+                    candle_core::op::Op::MaxPool2D {
+                        arg,
+                        kernel_size,
+                        stride,
+                    } => println!("maxpool2d op"),
+                    candle_core::op::Op::UpsampleNearest1D { arg, target_size } => {
+                        println!("upsamplenearest1d op")
+                    }
+                    candle_core::op::Op::UpsampleNearest2D {
+                        arg,
+                        target_h,
+                        target_w,
+                    } => println!("upsamplenearest2d op"),
+                    candle_core::op::Op::Cat(a, b) => println!("CatOp"),
+                    candle_core::op::Op::Affine { arg, mul, add } => {
+                        println!("Affineop: {} Mul, {} Add", mul, add)
+                    }
+                    candle_core::op::Op::ToDType(a) => println!("ToDtypeOp"),
+                    candle_core::op::Op::Copy(a) => println!("CopyOp: arg: {:?}", a.id()),
+                    candle_core::op::Op::Broadcast(a) => println!("BroadcastOp: arg: {:?}", a.id()),
+                    candle_core::op::Op::Narrow(_, _, _, _) => println!("narrow op"),
+                    candle_core::op::Op::SliceScatter0(_, _, _) => println!("slicescatter0 op"),
+                    candle_core::op::Op::Reshape(a) => println!("ReshapeOp: arg: {:?}", a.id()),
+                    candle_core::op::Op::ToDevice(a) => println!("ToDeviceOp"),
+                    candle_core::op::Op::Transpose(a, b, c) => {
+                        println!("TransposeOp: ({} , {}) dims, arg: {:?}", b, c, a.id())
+                    }
+                    candle_core::op::Op::Permute(_, _) => println!("permute op"),
+                    candle_core::op::Op::Elu(_, _) => println!("elu op"),
+                    candle_core::op::Op::Powf(_, _) => println!("powf op"),
+                    candle_core::op::Op::CustomOp1(_, _) => println!("custom1 op"),
+                    candle_core::op::Op::CustomOp2(_, _, _) => println!("custom2 op"),
+                    candle_core::op::Op::CustomOp3(_, _, _, _) => println!("custom3 op"),
+                },
+                None => println!("None"),
+            };
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use candle_core::Device;
+    use candle_nn::{linear, VarMap};
     use tokenizers::Tokenizer;
 
     #[test]
     fn test_metal_kernel_launch() {
-        let x = 2048usize;
+        let bsize = 1usize;
+        let x = 8usize;
         let y = 512usize;
         let device = Device::new_metal(0).unwrap();
-        let t = Tensor::arange(0., 1., &device).unwrap();
-        let v1 = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
-        let v2 = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
+        let vmap = VarMap::new();
+        let vb = VarBuilder::from_varmap(&vmap, DType::F32, &device);
+        let ll = linear(512, 512, vb.pp("ll")).unwrap();
 
-        let v2 = v1.matmul(&v2).unwrap();
-        let v3 = (&v1 + &v2).unwrap();
-        let v4 = (&v3 - &v2).unwrap();
-        let v5 = (&v4 * &v2).unwrap();
-        let v6 = (v5.tanh()).unwrap();
-        
-        let tp = v6.new_sorted_nodes();
-        println!("topological order: {:?}", tp);
-        println!("f: {}", v6);
+        let random = Tensor::randn(0f32, 1., (bsize, x, y), &device).unwrap();
+        let res = ll.forward(&random).unwrap();
+        let ordered_nodes = res.sort_nodes();
+        Tensor::get_op_graph(ordered_nodes);
+        let (b_size, seq_len, _) = random.dims3().unwrap();
+        let res = res
+            .reshape((b_size, seq_len, 4, 512 / 4))
+            .unwrap()
+            .transpose(1, 2)
+            .unwrap();
+        let ordered_nodes = res.sort_nodes();
+        println!("\n");
+        Tensor::get_op_graph(ordered_nodes);
     }
 
     #[test]
@@ -237,7 +346,7 @@ mod tests {
         let embeddings = input_embeddings.forward(&token_ids, &device).unwrap();
 
         println!("vector embeddings:\n {}\n", embeddings);
-        let sorted_nodes  = embeddings.new_sorted_nodes();
+        let sorted_nodes = embeddings.sort_nodes();
         println!("sorted_nodes: \n{:?}\n", sorted_nodes);
     }
 }

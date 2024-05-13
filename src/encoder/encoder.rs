@@ -83,7 +83,5 @@ mod tests {
         // println!("encoder: \n{:?}\n", encoder);
         let t = encoder.forward(encoder_input, false).unwrap();
         println!("encoder_output: \n{}\n", t);
-        let sorted_nodes  = t.new_sorted_nodes();
-        println!("sorted_nodes: \n{:?}\n", sorted_nodes);
     }
 }
