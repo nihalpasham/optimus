@@ -287,7 +287,7 @@ impl SortedNodes for Tensor {
                     candle_core::op::Op::CustomOp2(_, _, _) => println!("custom2 op"),
                     candle_core::op::Op::CustomOp3(_, _, _, _) => println!("custom3 op"),
                 },
-                None => println!("None"),
+                None => println!("None: arg: {:?}", node.id()),
             };
         }
     }
