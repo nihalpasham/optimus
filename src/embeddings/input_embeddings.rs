@@ -202,17 +202,43 @@ impl SortedNodes for Tensor {
                     candle_core::op::Op::Unary(a, b) => {
                         println!("UnaryOp: {:?}, arg: {:?}", b, a.id())
                     }
-                    candle_core::op::Op::Cmp(a, b) => println!("CmpOp:"),
+                    candle_core::op::Op::Cmp(a, b) => {
+                        println!("CmpOp: {:?}, arg: {:?}, ", b, a.id())
+                    }
                     candle_core::op::Op::Reduce(a, b, c) => {
-                        println!("ReduceOp: {:?}, arg: {:?}", b, a.id())
+                        println!("ReduceOp: {:?}, arg: {:?}, output: {:?}", b, a.id(), c)
                     }
                     candle_core::op::Op::Matmul(a, b) => {
                         println!("MatmulOp: arg1: {:?}, arg2: {:?}", a.id(), b.id())
                     }
-                    candle_core::op::Op::Gather(a, b, c) => println!("GatherOp: {:?}", c),
-                    candle_core::op::Op::ScatterAdd(_, _, _, _) => println!("scatterAdd op"),
-                    candle_core::op::Op::IndexSelect(_, _, _) => println!("indexselect op"),
-                    candle_core::op::Op::IndexAdd(_, _, _, _) => println!("indexadd op"),
+                    candle_core::op::Op::Gather(a, b, c) => {
+                        println!(
+                            "GatherOp: arg1: {:?}, arg2: {:?}, output: {:?}",
+                            a.id(),
+                            b.id(),
+                            c
+                        )
+                    }
+                    candle_core::op::Op::ScatterAdd(a, b, c, d) => println!(
+                        "ScatterAddOp: arg1: {:?}, arg2: {:?}, arg3: {:?}, output: {:?}",
+                        a.id(),
+                        b.id(),
+                        c.id(),
+                        d
+                    ),
+                    candle_core::op::Op::IndexSelect(a, b, c) => println!(
+                        "IndexSelectOp: arg1: {:?}, arg2: {:?}, output: {:?}",
+                        a.id(),
+                        b.id(),
+                        c
+                    ),
+                    candle_core::op::Op::IndexAdd(a, b, c, d) => println!(
+                        "IndexAddOp: arg1: {:?}, arg2: {:?}, arg3: {:?}, output: {:?}",
+                        a.id(),
+                        b.id(),
+                        c.id(),
+                        d
+                    ),
                     candle_core::op::Op::WhereCond(a, b, c) => println!(
                         "WhereCondOp: arg1: {:?}, arg2: {:?}, arg3: {:?}",
                         a.id(),
@@ -225,7 +251,7 @@ impl SortedNodes for Tensor {
                         padding,
                         stride,
                         dilation,
-                    } => println!("conv1d op"),
+                    } => println!("Conv1DOp:"),
                     candle_core::op::Op::ConvTranspose1D {
                         arg,
                         kernel,
@@ -233,14 +259,14 @@ impl SortedNodes for Tensor {
                         output_padding,
                         stride,
                         dilation,
-                    } => println!("convtranspose1d op"),
+                    } => println!("ConvTranspose1DOp:"),
                     candle_core::op::Op::Conv2D {
                         arg,
                         kernel,
                         padding,
                         stride,
                         dilation,
-                    } => println!("conv2d op"),
+                    } => println!("Conv2DOp:"),
                     candle_core::op::Op::ConvTranspose2D {
                         arg,
                         kernel,
@@ -248,45 +274,45 @@ impl SortedNodes for Tensor {
                         output_padding,
                         stride,
                         dilation,
-                    } => println!("conv2d transpose op"),
+                    } => println!("ConvTranspose2DOp:"),
                     candle_core::op::Op::AvgPool2D {
                         arg,
                         kernel_size,
                         stride,
-                    } => println!("avgpool2d op"),
+                    } => println!("AvgPool2DOp:"),
                     candle_core::op::Op::MaxPool2D {
                         arg,
                         kernel_size,
                         stride,
-                    } => println!("maxpool2d op"),
+                    } => println!("MaxPool2DOp:"),
                     candle_core::op::Op::UpsampleNearest1D { arg, target_size } => {
-                        println!("upsamplenearest1d op")
+                        println!("UpsampleNearest1DOp:")
                     }
                     candle_core::op::Op::UpsampleNearest2D {
                         arg,
                         target_h,
                         target_w,
-                    } => println!("upsamplenearest2d op"),
+                    } => println!("UpsampleNearest2DOp:"),
                     candle_core::op::Op::Cat(a, b) => println!("CatOp"),
                     candle_core::op::Op::Affine { arg, mul, add } => {
-                        println!("Affineop: {} Mul, {} Add", mul, add)
+                        println!("AffineOp: {} Mul, {} Add", mul, add)
                     }
                     candle_core::op::Op::ToDType(a) => println!("ToDtypeOp"),
                     candle_core::op::Op::Copy(a) => println!("CopyOp: arg: {:?}", a.id()),
                     candle_core::op::Op::Broadcast(a) => println!("BroadcastOp: arg: {:?}", a.id()),
-                    candle_core::op::Op::Narrow(_, _, _, _) => println!("narrow op"),
-                    candle_core::op::Op::SliceScatter0(_, _, _) => println!("slicescatter0 op"),
+                    candle_core::op::Op::Narrow(a, b, c, d) => println!("NarrowOp:"),
+                    candle_core::op::Op::SliceScatter0(a, b, c) => println!("SliceScatter0Op:"),
                     candle_core::op::Op::Reshape(a) => println!("ReshapeOp: arg: {:?}", a.id()),
                     candle_core::op::Op::ToDevice(a) => println!("ToDeviceOp"),
                     candle_core::op::Op::Transpose(a, b, c) => {
                         println!("TransposeOp: ({} , {}) dims, arg: {:?}", b, c, a.id())
                     }
-                    candle_core::op::Op::Permute(_, _) => println!("permute op"),
-                    candle_core::op::Op::Elu(_, _) => println!("elu op"),
-                    candle_core::op::Op::Powf(_, _) => println!("powf op"),
-                    candle_core::op::Op::CustomOp1(_, _) => println!("custom1 op"),
-                    candle_core::op::Op::CustomOp2(_, _, _) => println!("custom2 op"),
-                    candle_core::op::Op::CustomOp3(_, _, _, _) => println!("custom3 op"),
+                    candle_core::op::Op::Permute(a, b) => println!("PermuteOp:"),
+                    candle_core::op::Op::Elu(a, b) => println!("EluOp:"),
+                    candle_core::op::Op::Powf(a, b) => println!("PowfOp:"),
+                    candle_core::op::Op::CustomOp1(a, b) => println!("CustomOp1:"),
+                    candle_core::op::Op::CustomOp2(a, b, c) => println!("CustomOp2:"),
+                    candle_core::op::Op::CustomOp3(a, b, c, d) => println!("CustomOp3:"),
                 },
                 None => println!("None: arg: {:?}", node.id()),
             };
