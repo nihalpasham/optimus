@@ -30,7 +30,10 @@ mod tests {
     use tokenizers::Tokenizer;
 
     use crate::{
-        embeddings::{input_embeddings::{InputEmbeddings, SortedNodes}, pos_embeddings::PosEmbeddings},
+        embeddings::{
+            input_embeddings::{InputEmbeddings, SortedNodes},
+            pos_embeddings::PosEmbeddings,
+        },
         feed_forward::feed_forward::FeedForwardBlock,
         multi_head_attn::multihead_block::MultiHeadAttnBlock,
     };

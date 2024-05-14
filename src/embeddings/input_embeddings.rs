@@ -187,7 +187,6 @@ impl SortedNodes for Tensor {
             }
             (track_grad, nodes)
         }
-        println!("\n in sorted nodes");
         let (_tg, mut nodes) = walk(self, vec![], &mut HashMap::new());
         nodes.reverse();
         nodes
@@ -204,7 +203,9 @@ impl SortedNodes for Tensor {
                         println!("UnaryOp: {:?}, arg: {:?}", b, a.id())
                     }
                     candle_core::op::Op::Cmp(a, b) => println!("CmpOp:"),
-                    candle_core::op::Op::Reduce(a, b, c) => println!("ReduceOp: {:?}", b),
+                    candle_core::op::Op::Reduce(a, b, c) => {
+                        println!("ReduceOp: {:?}, arg: {:?}", b, a.id())
+                    }
                     candle_core::op::Op::Matmul(a, b) => {
                         println!("MatmulOp: arg1: {:?}, arg2: {:?}", a.id(), b.id())
                     }
