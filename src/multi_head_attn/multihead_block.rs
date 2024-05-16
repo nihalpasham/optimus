@@ -162,9 +162,6 @@ impl<'a> MultiHeadAttnBlock<'a> {
             seq_len,
             self.num_heads * self.head_size,
         ))?;
-
-        let sorted_nodes = res.sort_nodes();
-        Tensor::get_op_graph(sorted_nodes);
         // (Batch, Seq_Len, d_model) --> (Batch, Seq_Len, d_model)
         Ok((self.w_o.forward(&res))?)
     }
@@ -264,6 +261,8 @@ mod tests {
         let attn = mha
             .forward(&encoder_input, &encoder_input, &encoder_input, true)
             .unwrap();
+        let sorted_nodes = attn.sort_nodes();
+        Tensor::get_op_graph(sorted_nodes);
         println!("\n attn_output: {}", attn);
     }
 }

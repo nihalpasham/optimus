@@ -51,8 +51,27 @@
                     "--no-run",
                 ],
             },
-            "args": ["test_metal_kernel_launch", "--nocapture"],
+            "args": [
+                "test_metal_kernel_launch",
+                "--nocapture"
+            ],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Get Op Graph (test)",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                ],
+            },
+            "args": [
+                "test_get_op_graph",
+                "--nocapture"
+            ],
+            "cwd": "${workspaceFolder}"
+        }
     ],
 }

@@ -196,22 +196,22 @@ impl SortedNodes for Tensor {
         for node in sorted_nodes.iter() {
             let op = match node.op() {
                 Some(op) => match op {
-                    candle_core::op::Op::Binary(a, b, c) => {
+                    Op::Binary(a, b, c) => {
                         println!("BinaryOp: {:?}, arg1: {:?}, arg2: {:?}", c, a.id(), b.id())
                     }
-                    candle_core::op::Op::Unary(a, b) => {
+                    Op::Unary(a, b) => {
                         println!("UnaryOp: {:?}, arg: {:?}", b, a.id())
                     }
-                    candle_core::op::Op::Cmp(a, b) => {
+                    Op::Cmp(a, b) => {
                         println!("CmpOp: {:?}, arg: {:?}, ", b, a.id())
                     }
-                    candle_core::op::Op::Reduce(a, b, c) => {
+                    Op::Reduce(a, b, c) => {
                         println!("ReduceOp: {:?}, arg: {:?}, output: {:?}", b, a.id(), c)
                     }
-                    candle_core::op::Op::Matmul(a, b) => {
+                    Op::Matmul(a, b) => {
                         println!("MatmulOp: arg1: {:?}, arg2: {:?}", a.id(), b.id())
                     }
-                    candle_core::op::Op::Gather(a, b, c) => {
+                    Op::Gather(a, b, c) => {
                         println!(
                             "GatherOp: arg1: {:?}, arg2: {:?}, output: {:?}",
                             a.id(),
@@ -219,40 +219,40 @@ impl SortedNodes for Tensor {
                             c
                         )
                     }
-                    candle_core::op::Op::ScatterAdd(a, b, c, d) => println!(
+                    Op::ScatterAdd(a, b, c, d) => println!(
                         "ScatterAddOp: arg1: {:?}, arg2: {:?}, arg3: {:?}, output: {:?}",
                         a.id(),
                         b.id(),
                         c.id(),
                         d
                     ),
-                    candle_core::op::Op::IndexSelect(a, b, c) => println!(
+                    Op::IndexSelect(a, b, c) => println!(
                         "IndexSelectOp: arg1: {:?}, arg2: {:?}, output: {:?}",
                         a.id(),
                         b.id(),
                         c
                     ),
-                    candle_core::op::Op::IndexAdd(a, b, c, d) => println!(
+                    Op::IndexAdd(a, b, c, d) => println!(
                         "IndexAddOp: arg1: {:?}, arg2: {:?}, arg3: {:?}, output: {:?}",
                         a.id(),
                         b.id(),
                         c.id(),
                         d
                     ),
-                    candle_core::op::Op::WhereCond(a, b, c) => println!(
+                    Op::WhereCond(a, b, c) => println!(
                         "WhereCondOp: arg1: {:?}, arg2: {:?}, arg3: {:?}",
                         a.id(),
                         b.id(),
                         c.id()
                     ),
-                    candle_core::op::Op::Conv1D {
+                    Op::Conv1D {
                         arg,
                         kernel,
                         padding,
                         stride,
                         dilation,
                     } => println!("Conv1DOp:"),
-                    candle_core::op::Op::ConvTranspose1D {
+                    Op::ConvTranspose1D {
                         arg,
                         kernel,
                         padding,
@@ -260,14 +260,14 @@ impl SortedNodes for Tensor {
                         stride,
                         dilation,
                     } => println!("ConvTranspose1DOp:"),
-                    candle_core::op::Op::Conv2D {
+                    Op::Conv2D {
                         arg,
                         kernel,
                         padding,
                         stride,
                         dilation,
                     } => println!("Conv2DOp:"),
-                    candle_core::op::Op::ConvTranspose2D {
+                    Op::ConvTranspose2D {
                         arg,
                         kernel,
                         padding,
@@ -275,44 +275,44 @@ impl SortedNodes for Tensor {
                         stride,
                         dilation,
                     } => println!("ConvTranspose2DOp:"),
-                    candle_core::op::Op::AvgPool2D {
+                    Op::AvgPool2D {
                         arg,
                         kernel_size,
                         stride,
                     } => println!("AvgPool2DOp:"),
-                    candle_core::op::Op::MaxPool2D {
+                    Op::MaxPool2D {
                         arg,
                         kernel_size,
                         stride,
                     } => println!("MaxPool2DOp:"),
-                    candle_core::op::Op::UpsampleNearest1D { arg, target_size } => {
+                    Op::UpsampleNearest1D { arg, target_size } => {
                         println!("UpsampleNearest1DOp:")
                     }
-                    candle_core::op::Op::UpsampleNearest2D {
+                    Op::UpsampleNearest2D {
                         arg,
                         target_h,
                         target_w,
                     } => println!("UpsampleNearest2DOp:"),
-                    candle_core::op::Op::Cat(a, b) => println!("CatOp"),
-                    candle_core::op::Op::Affine { arg, mul, add } => {
+                    Op::Cat(a, b) => println!("CatOp"),
+                    Op::Affine { arg, mul, add } => {
                         println!("AffineOp: {} Mul, {} Add", mul, add)
                     }
-                    candle_core::op::Op::ToDType(a) => println!("ToDtypeOp"),
-                    candle_core::op::Op::Copy(a) => println!("CopyOp: arg: {:?}", a.id()),
-                    candle_core::op::Op::Broadcast(a) => println!("BroadcastOp: arg: {:?}", a.id()),
-                    candle_core::op::Op::Narrow(a, b, c, d) => println!("NarrowOp:"),
-                    candle_core::op::Op::SliceScatter0(a, b, c) => println!("SliceScatter0Op:"),
-                    candle_core::op::Op::Reshape(a) => println!("ReshapeOp: arg: {:?}", a.id()),
-                    candle_core::op::Op::ToDevice(a) => println!("ToDeviceOp"),
-                    candle_core::op::Op::Transpose(a, b, c) => {
+                    Op::ToDType(a) => println!("ToDtypeOp"),
+                    Op::Copy(a) => println!("CopyOp: arg: {:?}", a.id()),
+                    Op::Broadcast(a) => println!("BroadcastOp: arg: {:?}", a.id()),
+                    Op::Narrow(a, b, c, d) => println!("NarrowOp:"),
+                    Op::SliceScatter0(a, b, c) => println!("SliceScatter0Op:"),
+                    Op::Reshape(a) => println!("ReshapeOp: arg: {:?}", a.id()),
+                    Op::ToDevice(a) => println!("ToDeviceOp"),
+                    Op::Transpose(a, b, c) => {
                         println!("TransposeOp: ({} , {}) dims, arg: {:?}", b, c, a.id())
                     }
-                    candle_core::op::Op::Permute(a, b) => println!("PermuteOp:"),
-                    candle_core::op::Op::Elu(a, b) => println!("EluOp:"),
-                    candle_core::op::Op::Powf(a, b) => println!("PowfOp:"),
-                    candle_core::op::Op::CustomOp1(a, b) => println!("CustomOp1:"),
-                    candle_core::op::Op::CustomOp2(a, b, c) => println!("CustomOp2:"),
-                    candle_core::op::Op::CustomOp3(a, b, c, d) => println!("CustomOp3:"),
+                    Op::Permute(a, b) => println!("PermuteOp:"),
+                    Op::Elu(a, b) => println!("EluOp:"),
+                    Op::Powf(a, b) => println!("PowfOp:"),
+                    Op::CustomOp1(a, b) => println!("CustomOp1:"),
+                    Op::CustomOp2(a, b, c) => println!("CustomOp2:"),
+                    Op::CustomOp3(a, b, c, d) => println!("CustomOp3:"),
                 },
                 None => println!("None: arg: {:?}", node.id()),
             };
@@ -329,6 +329,17 @@ mod tests {
 
     #[test]
     fn test_metal_kernel_launch() {
+        let x = 2048usize;
+        let y = 512usize;
+        let device = Device::new_metal(0).unwrap();
+        let a = Tensor::randn(0f32, 1., (x, y), &device).unwrap();
+        let b = Tensor::randn(0f32, 1., (y, x), &device).unwrap();
+        let result = a.matmul(&b).unwrap();
+        println!("result: {}", result);
+    }
+
+    #[test]
+    fn test_get_op_graph() {
         let bsize = 1usize;
         let x = 8usize;
         let y = 512usize;
@@ -341,6 +352,7 @@ mod tests {
         let res = ll.forward(&random).unwrap();
         let ordered_nodes = res.sort_nodes();
         Tensor::get_op_graph(ordered_nodes);
+
         let (b_size, seq_len, _) = random.dims3().unwrap();
         let res = res
             .reshape((b_size, seq_len, 4, 512 / 4))
