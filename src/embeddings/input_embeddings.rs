@@ -336,6 +336,9 @@ mod tests {
         let b = Tensor::randn(0f32, 1., (y, x), &device).unwrap();
         let result = a.matmul(&b).unwrap();
         println!("result: {}", result);
+        // let ordered_nodes = result.sort_nodes();
+        // println!("ordered_nodes: {:?}", ordered_nodes);
+        // Tensor::get_op_graph(ordered_nodes);
     }
 
     #[test]
